@@ -1,1 +1,9 @@
 .DS_Store
+node_modules
+dist
+.vercel
+*.blend1
+.venv
+.work
+__pycache__
+.claude/settings.local.json
