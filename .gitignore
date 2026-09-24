@@ -7,3 +7,4 @@ dist
 .work
 __pycache__
 .claude/settings.local.json
+.env*
