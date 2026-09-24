@@ -142,6 +142,7 @@ async function main() {
   function setView(v: ViewName) {
     if (director.inIntro) return;
     lore.close();
+    overlay.showTag(null);
     const from = director.view;
     hud.setView(v);
     if (from === 'trunk' && v !== 'trunk') trunk.open(false);

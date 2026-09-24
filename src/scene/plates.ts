@@ -164,8 +164,10 @@ export function drawOhio(): HTMLCanvasElement {
  */
 export class Plate {
   readonly pivot = new THREE.Group();
+  private from = 0;
   private target = 0;
   private angle = 0;
+  private t = 1;
   ohio = false;
 
   constructor(kansas: THREE.Texture, ohio: THREE.Texture, env: THREE.Texture | null) {
@@ -188,18 +190,20 @@ export class Plate {
 
   toggle(instant = false) {
     this.ohio = !this.ohio;
+    this.from = this.angle;
     this.target = this.ohio ? Math.PI : 0;
+    this.t = instant ? 1 : 0;
     if (instant) this.angle = this.target;
   }
 
   update(dt: number) {
-    const d = this.target - this.angle;
-    if (Math.abs(d) < 1e-4) {
-      this.angle = this.target;
-    } else {
-      // springy flip
-      this.angle += d * Math.min(1, dt * 7);
-    }
+    if (this.t >= 1) return;
+    // a spin with a little overshoot, like a sign on a hinge
+    this.t = Math.min(1, this.t + dt / 0.9);
+    const c1 = 1.4, c3 = c1 + 1;
+    const x = this.t - 1;
+    const k = 1 + c3 * x * x * x + c1 * x * x;
+    this.angle = this.from + (this.target - this.from) * k;
     this.pivot.rotation.x = this.angle;
   }
 }

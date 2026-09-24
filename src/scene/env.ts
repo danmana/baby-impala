@@ -26,8 +26,9 @@ export function buildEnvironment(renderer: THREE.WebGLRenderer, motel: boolean):
           float h = vDir.y;
           vec3 top = vec3(0.010, 0.012, 0.018);
           vec3 hor = vec3(0.030, 0.030, 0.036);
-          vec3 gnd = vec3(0.022, 0.02, 0.019);
-          vec3 c = h > 0.0 ? mix(hor, top, smoothstep(0.0, 0.6, h)) : mix(hor, gnd, smoothstep(0.0, 0.15, -h));
+          // below the horizon: wet road reflecting the night glow, brighter towards the horizon
+          vec3 gnd = vec3(0.05, 0.047, 0.045);
+          vec3 c = h > 0.0 ? mix(hor, top, smoothstep(0.0, 0.6, h)) : mix(hor * 1.6, gnd, smoothstep(0.0, 0.45, -h));
           gl_FragColor = vec4(c, 1.0);
         }`,
     }),

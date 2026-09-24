@@ -143,8 +143,15 @@ export class Ground {
     this.mesh.name = 'ground';
   }
 
+  private frames = 0;
+
   update(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.PerspectiveCamera, hide: THREE.Object3D[], t: number) {
     this.uniforms.uTime.value = t;
+    // the reflection pass reuses the main pass's shadow maps, so wait until those exist
+    if (this.frames++ < 2) {
+      this.uniforms.uReflOn.value = 0;
+      return;
+    }
     if (this.reflection && this.reflection.scale > 0) {
       this.reflection.render(renderer, scene, camera, [this.mesh, ...hide]);
       this.uniforms.tRefl.value = this.reflection.target.texture;
