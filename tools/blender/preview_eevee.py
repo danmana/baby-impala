@@ -82,3 +82,9 @@ def render_all(out, prefix='b'):
         cam = shot(f'{prefix}_traytop', (-2.08, 0, 6), (-2.08, 0, 0), out, ortho=1.7)
     if 'board' in views:
         shot(f'{prefix}_board', (-3.9, 0.0, 1.35), (-1.72, 0, 1.0), out, lens=38)
+    if 'webtrunk' in views:
+        # the site's trunk camera (three.js (x, y, z) -> Blender (x, -z, y))
+        shot(f'{prefix}_webtrunk', (-4.85, -0.55, 2.25), (-2.05, 0, 1.05), out, lens=40)
+    if 'boardside' in views:
+        # grazing along the standing board: shows what sticks out of the felt
+        shot(f'{prefix}_boardside', (-2.5, -2.6, 1.05), (-1.95, 0.1, 1.0), out, lens=55)

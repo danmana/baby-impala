@@ -124,11 +124,14 @@ def lay(key, obj, x, y, rz=0.0, lift=0.0, flat_it=True):
     return obj
 
 
-def mount(key, obj, u, h, theta=0.0, flat_it=True):
+def mount(key, obj, u, h, theta=0.0, flat_it=True, stretch=None):
+    """stretch: (across, thickness) scale after flattening, to broaden a blade."""
     obj.name = f'item_{key}'
     obj.data.name = f'item_{key}'
     if flat_it:
         flat(obj)
+    if stretch:
+        obj.data.transform(Matrix.Diagonal((1.0, stretch[0], stretch[1], 1.0)))
     PH.texturize(obj)
     place_on_board(obj, u, h, theta)
     return obj
@@ -187,10 +190,14 @@ def build(fa=None, ra=None):
     # lay it on its side in the case (the profile faces up)
     gun.data.transform(Matrix.Rotation(-math.pi / 2, 4, 'X'))
     gun.data.transform(Matrix.Translation((-0.05, 0.035, 0.062)))
-    rounds = [L.cylinder('colt_round', 0.0055, 0.03, (-0.15 + 0.022 * i, -0.052, 0.052), axis='Y', segments=10, mat='silver')
-              for i in range(13)]
+    # the thirteen rounds in two rows under the barrel, clear of the grip
+    rounds = [L.cylinder('colt_round', 0.0055, 0.03, (0.0 + 0.022 * i, -0.029, 0.052), axis='Y', segments=10, mat='silver')
+              for i in range(7)]
+    rounds += [L.cylinder('colt_round', 0.0055, 0.03, (0.011 + 0.022 * i, -0.061, 0.052), axis='Y', segments=10, mat='silver')
+               for i in range(6)]
     case = L.join([case, felt, gun] + rounds, 'colt')
-    items.append(lay('colt', case, -1.985, -0.03, 90, flat_it=False))
+    # grip towards the back of the car, so from behind it reads as a gun lying in its case
+    items.append(lay('colt', case, -1.985, -0.03, -90, flat_it=False))
     journal = PH.import_ph('binder_notebook', keep=['binder_notebook_closed'], tex_size=1024)
     items.append(lay('journal', journal, -1.80, 0.15, 84, flat_it=False))
     items.append(lay('silver_bullets', P.bullets_box('p'), -1.785, -0.035, 4, flat_it=False))
@@ -221,12 +228,12 @@ def build(fa=None, ra=None):
     mounted.append(mount('machete', machete, 0.02, 0.70, 0))
     mounted.append(mount('arrow', P.arrow('p'), -0.02, 0.61, 2, flat_it=False))
     hatchet = PH.import_ph('hatchet')
-    mounted.append(mount('hatchet', hatchet, -0.56, 0.33, 90))
-    dagger = PH.import_ph('ornate_medieval_dagger', keep=['ornate_medieval_dagger'])
-    mounted.append(mount('ruby_knife', dagger, -0.36, 0.30, 90))
+    # lying across the board, head to the left, parallel to the board's edges
+    mounted.append(mount('hatchet', hatchet, -0.565, 0.36, 180))
+    mounted.append(mount('ruby_knife', P.ruby_knife('p'), -0.33, 0.30, 90))
     knife = PH.import_ph('fish_knife')
-    mounted.append(mount('silver_knife', knife, -0.24, 0.40, 88))
-    mounted.append(mount('bowie', P.knife('p', 0.36, 0.62, 0.04, 'leather'), 0.06, 0.44, 92))
+    mounted.append(mount('silver_knife', knife, -0.225, 0.40, 88, stretch=(1.3, 0.9)))
+    mounted.append(mount('bowie', P.bowie('p'), 0.06, 0.44, 92))
     mounted.append(mount('angel_blade', P.angel_blade('p'), -0.12, 0.47, 90))
     mounted.append(mount('stake', P.stake('p', 0.32), -0.02, 0.19, 88))
     mounted.append(mount('stake_2', P.stake('p', 0.28), 0.04, 0.17, 93))
@@ -245,8 +252,8 @@ def build(fa=None, ra=None):
     mounted.append(mount('chain', P.chain('p', 10), -0.14, 0.08, 0, flat_it=False))
     # nylon straps holding things to the felt
     straps = []
-    for (u, hh, w, th) in ((0.02, 0.70, 0.03, 90), (-0.56, 0.33, 0.05, 0), (-0.36, 0.30, 0.04, 0), (0.62, 0.36, 0.04, 0),
-                           (-0.02, 0.18, 0.05, 0), (0.21, 0.36, 0.05, 0), (0.40, 0.16, 0.05, 90), (-0.24, 0.40, 0.04, 0)):
+    for (u, hh, w, th) in ((0.02, 0.70, 0.03, 90), (-0.48, 0.36, 0.05, 90), (-0.33, 0.30, 0.04, 0), (0.62, 0.36, 0.04, 0),
+                           (-0.02, 0.18, 0.05, 0), (0.21, 0.36, 0.05, 0), (0.40, 0.16, 0.05, 90), (-0.225, 0.40, 0.04, 0)):
         st = L.box('strap', (w, 0.024, 0.006), (0, 0, 0.003), 'strap')
         place_on_board(st, u, hh, th)
         st.location.z -= 0.014

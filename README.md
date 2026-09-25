@@ -25,6 +25,7 @@ Handy URL flags while developing: `?autostart` skips the start screen, `?nointro
 | `src/ui/` | The journal UI: loading page, index tabs, the checklist, lore pages, hotspot hit-targets, the cassette deck. Paper is built from a scanned page texture, stains and torn edges |
 | `src/audio/` | Recorded V8 start-up, seamless idle and shut-off, trunk latch and creak, tape-deck clunks, and the tape player (local MP3s + Spotify embed) |
 | `src/content/lore.ts` | Every piece of text on the site: hotspot lore, the trunk inventory, the Devil's Trap, the tapes |
+| `about.html`, `src/about/`, `public/about/` | The "How Baby was built" write-up linked from the footer, with its screenshots |
 | `tools/blender/` | The Blender build that turns the base model into Baby and exports `public/models/baby.glb` |
 | `assets-src/sketchfab/` | The unmodified base model (glTF + textures) the Blender build starts from |
 | `assets-src/sounds/`, `assets-src/props_tex/`, `assets-src/ui/` | Original sound files, baked prop textures and the source paper scan |

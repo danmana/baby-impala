@@ -385,13 +385,63 @@ def ruby_knife(name):
     return L.join(parts, name)
 
 
+def _flat_blade(name, pts, thick, mat):
+    """A blade lying flat: outline in XY (x along the blade, y across it),
+    thickness centred on Z, with softened edges."""
+    b = L.extrude_outline(name, pts, thick, mat, bevel_w=thick * 0.38)
+    b.data.transform(Matrix.Translation((0, 0, -thick / 2)))
+    return b
+
+
 def angel_blade(name):
-    """Triangular-section silver blade on a short grip."""
-    parts = []
-    parts.append(L.lathe(name + '_b', [(0.0, 0.012), (0.3, 0.0)], segments=3, mat='silver', axis='X'))
-    parts.append(L.lathe(name + '_h', [(-0.1, 0.0), (-0.1, 0.012), (0.0, 0.012), (0.0, 0.0)], segments=8,
+    """Angel blade: a long, narrow, double-edged silver blade with a flat
+    section (so it lies flat on the felt), on a ringed silver grip."""
+    pts = [(0.0, -0.0115), (0.2, -0.0095), (0.262, -0.0045), (0.29, 0.0), (0.262, 0.0045), (0.2, 0.0095),
+           (0.0, 0.0115)]
+    parts = [_flat_blade(name + '_b', pts, 0.0045, 'silver')]
+    parts.append(L.lathe(name + '_h', [(-0.105, 0.0), (-0.105, 0.0095), (0.0, 0.0095), (0.0, 0.0)], segments=10,
                          mat='silver', axis='X'))
+    for k, x in enumerate((-0.02, -0.05, -0.08)):
+        parts.append(L.cylinder(name + f'_r{k}', 0.0108, 0.004, (x, 0, 0), axis='X', segments=12, mat='nickel'))
     return L.join(parts, name)
+
+
+def bowie(name):
+    """A proper Bowie: a wide, flat blade with a clip point and a straight
+    spine, brass crossguard, stag handle and brass pommel."""
+    pts = [(0.0, -0.021), (0.07, -0.0235), (0.13, -0.0232), (0.168, -0.0188), (0.196, -0.0098), (0.215, 0.0),
+           (0.197, 0.0072), (0.174, 0.0122), (0.152, 0.0205), (0.14, 0.0215), (0.0, 0.0215)]
+    parts = [_flat_blade(name + '_b', pts, 0.0052, 'steel')]
+    parts.append(L.box(name + '_g', (0.009, 0.084, 0.013), (-0.0045, 0, 0), 'brass', bevel=0.003))
+    grip = L.extrude_outline(name + '_h', [(-0.009, -0.0135), (-0.06, -0.0158), (-0.108, -0.0145), (-0.126, -0.011),
+                                            (-0.126, 0.0125), (-0.108, 0.0152), (-0.06, 0.0165), (-0.009, 0.014)],
+                             0.02, 'antler', bevel_w=0.006)
+    grip.data.transform(Matrix.Translation((0, 0, -0.01)))
+    parts.append(grip)
+    parts.append(L.box(name + '_p', (0.011, 0.031, 0.022), (-0.131, 0, 0), 'brass', bevel=0.004))
+    o = L.join(parts, name)
+    o.data.transform(Matrix.Translation((-0.04, 0, 0)))
+    return o
+
+
+def ruby_knife(name):
+    """Ruby's knife, after the show's prop: a broad blade with a gently
+    upswept tip, a small iron guard and a dark grip bound with iron rings."""
+    pts = [(0.0, -0.0152), (0.06, -0.0188), (0.11, -0.0208), (0.15, -0.0192), (0.178, -0.0122), (0.196, 0.0022),
+           (0.19, 0.0082), (0.16, 0.0106), (0.1, 0.0136), (0.04, 0.0146), (0.0, 0.0152)]
+    parts = [_flat_blade(name + '_b', pts, 0.0046, 'steel')]
+    parts.append(L.box(name + '_g', (0.008, 0.048, 0.013), (-0.004, 0, 0), 'iron', bevel=0.003))
+    grip = L.extrude_outline(name + '_h', [(-0.008, -0.012), (-0.05, -0.0138), (-0.094, -0.0122), (-0.106, -0.009),
+                                            (-0.106, 0.009), (-0.094, 0.0122), (-0.05, 0.0138), (-0.008, 0.012)],
+                             0.02, 'wood_dark', bevel_w=0.006)
+    grip.data.transform(Matrix.Translation((0, 0, -0.01)))
+    parts.append(grip)
+    for k, x in enumerate((-0.03, -0.058, -0.084)):
+        parts.append(L.box(name + f'_r{k}', (0.004, 0.03, 0.022), (x, 0, 0), 'iron', bevel=0.0015))
+    parts.append(L.box(name + '_p', (0.012, 0.025, 0.021), (-0.11, 0, 0), 'iron', bevel=0.005))
+    o = L.join(parts, name)
+    o.data.transform(Matrix.Translation((-0.045, 0, 0)))
+    return o
 
 
 def sheath_knife(name):

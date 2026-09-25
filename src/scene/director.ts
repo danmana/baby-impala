@@ -79,7 +79,8 @@ export class Director {
       if (!this.drag || this.drag.id !== e.pointerId) return;
       const k = 0.0042 / this.lookZoom;
       this.yaw += (e.clientX - this.drag.x) * k;
-      this.pitch = THREE.MathUtils.clamp(this.pitch + (e.clientY - this.drag.y) * k, -0.95, 0.7);
+      // drag down to look down, like turning your head (matches the yaw direction)
+      this.pitch = THREE.MathUtils.clamp(this.pitch - (e.clientY - this.drag.y) * k, -0.95, 0.7);
       this.drag.x = e.clientX;
       this.drag.y = e.clientY;
     });

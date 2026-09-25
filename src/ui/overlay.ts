@@ -53,6 +53,11 @@ export class Overlay {
     host.append(this.root, this.xroot, this.tag);
   }
 
+  /** true when the marker is on screen and nothing solid is in front of it */
+  isVisible(id: string) {
+    return this.markers.find((m) => m.spot.id === id)?.visible ?? false;
+  }
+
   positionOf(id: string): THREE.Vector3 | null {
     return this.markers.find((m) => m.spot.id === id)?.pos ?? null;
   }

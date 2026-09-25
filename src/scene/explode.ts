@@ -5,6 +5,8 @@ interface PartDef {
   label: string;
   /** node names (prefix match) that move together */
   names: string[];
+  /** prefixes to leave behind even though they match `names` */
+  exclude?: string[];
   /** offset in car space (three.js axes: x forward, y up, z passenger side) */
   offset: [number, number, number];
   delay: number;
@@ -20,7 +22,8 @@ const PARTS: PartDef[] = [
   { label: 'Rear door', names: ['door_rl'], offset: [-0.1, 0.1, -1.05], delay: 0.22 },
   { label: 'Front door', names: ['door_fr'], offset: [0.1, 0.1, 1.05], delay: 0.18, noLabel: true },
   { label: 'Rear door', names: ['door_rr'], offset: [-0.1, 0.1, 1.05], delay: 0.25, noLabel: true },
-  { label: '327 V8', names: ['engine', 'engine_bay'], offset: [0.2, 0.62, 0], delay: 0.4, labelOffset: [0, 0.45, 0] },
+  // the engine lifts out of its bay; the bay itself stays in the car
+  { label: '327 V8', names: ['engine'], exclude: ['engine_bay'], offset: [0.2, 0.62, 0], delay: 0.4, labelOffset: [0, 0.45, 0] },
   { label: 'Windshield', names: ['FrontGlass_Window', 'FrontChromeglass_Chrome', 'Wcleaner'], offset: [0.55, 0.95, 0], delay: 0.3 },
   { label: 'Rear window', names: ['BackGlass_Window', 'ChromeBackGlass_Chrome'], offset: [-0.35, 1.05, 0], delay: 0.35, labelOffset: [0.1, 0.25, -0.4] },
   { label: 'Front bumper', names: ['FrontBump_Chrome', 'frontBumpTooth_Chrome', 'ColorLamp_FrontChromes', 'anchor_plate_front_holder'], offset: [0.75, -0.02, 0], delay: 0.28, labelOffset: [0.2, -0.15, 0] },
@@ -63,6 +66,7 @@ export class Exploder {
     for (const def of PARTS) {
       const objs: THREE.Object3D[] = [];
       car.root.traverse((o) => {
+        if (def.exclude?.some((x) => o.name.startsWith(x))) return;
         if (def.names.some((n) => o.name === n || (o.name.startsWith(n) && o.parent?.name !== n && !objs.some((p) => isAncestor(p, o))))) {
           if (!objs.some((p) => isAncestor(p, o))) objs.push(o);
         }

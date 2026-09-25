@@ -36,5 +36,7 @@ export default defineConfig({
   build: {
     target: 'es2022',
     chunkSizeWarningLimit: 1500,
+    // two pages: the car, and the write-up about how it was built
+    rollupOptions: { input: { main: 'index.html', about: 'about.html' } },
   },
 });

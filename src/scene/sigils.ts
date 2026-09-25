@@ -65,6 +65,12 @@ export class Sigils {
   enabled = true;
   hovered: string | null = null;
   reduced = false;
+  /**
+   * Whether a sigil can be seen from the camera. The sprites ignore the depth
+   * buffer (a flat sprite on a curved panel would be cut in half), so hiding
+   * them behind the car is decided by this ray test instead.
+   */
+  visibleTest: (id: string) => boolean = () => true;
 
   constructor(spots: Hotspot[]) {
     this.group.name = 'sigils';
@@ -77,7 +83,7 @@ export class Sigils {
     spots.forEach((spot, i) => {
       const mat = new THREE.SpriteMaterial({
         map: tex[i % 3], color: 0xffffff, transparent: true, opacity: 0,
-        depthTest: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: true,
+        depthTest: false, depthWrite: false, blending: THREE.AdditiveBlending, fog: true,
       });
       const sprite = new THREE.Sprite(mat);
       sprite.position.set(...spot.pos);
@@ -95,7 +101,7 @@ export class Sigils {
   update(dt: number, t: number, camera: THREE.Camera) {
     const camPos = (camera as THREE.PerspectiveCamera).position;
     for (const m of this.marks) {
-      const show = this.enabled && this.view === m.spot.view ? 1 : 0;
+      const show = this.enabled && this.view === m.spot.view && this.visibleTest(m.spot.id) ? 1 : 0;
       m.target += (show - m.target) * Math.min(1, dt * 4);
       m.hover += ((this.hovered === m.spot.id ? 1 : 0) - m.hover) * Math.min(1, dt * 10);
       const breathe = this.reduced ? 0.85 : 0.72 + 0.28 * Math.sin(t * 1.6 + m.phase);

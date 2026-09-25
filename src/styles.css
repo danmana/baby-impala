@@ -209,21 +209,28 @@ button {
   line-height: 1.9;
 }
 .loader li { position: relative; color: var(--ink-soft); width: fit-content; }
-.loader li::after {
-  content: '';
+.loader li .strike {
   position: absolute;
-  left: -4px;
-  right: -6px;
-  top: 52%;
-  height: 2px;
-  background: var(--ink);
-  transform-origin: left;
-  transform: scaleX(0) rotate(-1.5deg);
-  transition: transform 0.45s ease;
+  left: -5px;
+  width: calc(100% + 12px);
+  top: 50%;
+  height: 12px;
+  margin-top: -5px;
+  overflow: visible;
+  pointer-events: none;
+}
+.loader li .strike path {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 2.1;
+  stroke-linecap: round;
+  stroke-dasharray: 100 100;
+  stroke-dashoffset: 100;
+  transition: stroke-dashoffset 0.5s cubic-bezier(0.45, 0.05, 0.3, 1);
 }
 .loader li.active { color: var(--ink); }
 .loader li.done { color: rgba(42, 33, 24, 0.45); }
-.loader li.done::after { transform: scaleX(1) rotate(-1.5deg); }
+.loader li.done .strike path { stroke-dashoffset: 0; }
 .loader .bar {
   height: 10px;
   position: relative;
@@ -518,6 +525,7 @@ button {
 .hud-on .footer { opacity: 1; }
 .footer a { color: rgba(233, 221, 192, 0.72); text-decoration: underline; text-decoration-color: rgba(233, 221, 192, 0.3); }
 .footer a:hover { color: var(--bone); }
+.footer details { display: inline; }
 .footer details summary { cursor: pointer; list-style: none; display: inline; }
 .footer details summary::-webkit-details-marker { display: none; }
 .footer details[open] .credits { display: block; }
@@ -709,6 +717,30 @@ button {
   padding-top: 8px;
 }
 .lore .actions { margin-top: 16px; display: flex; gap: 10px; flex-wrap: wrap; }
+/* paging through the trunk: hand-drawn chevrons at the foot of the page */
+.lore .pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 26px 16px 34px;
+  border-top: 1px dashed rgba(42, 33, 24, 0.3);
+  margin: 0 18px 0 26px;
+}
+.lore .pager[hidden] { display: none; }
+.lore .turn {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  transition: transform 0.15s ease, background-color 0.15s ease;
+}
+.lore .turn svg { width: 28px; height: 28px; fill: none; stroke: var(--ink); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.lore .turn:hover { background-color: rgba(143, 42, 29, 0.08); }
+.lore .turn.prev:hover { transform: translateX(-2px); }
+.lore .turn.next:hover { transform: translateX(2px); }
+.lore .turn:active { transform: scale(0.92); }
+.lore .count { font-family: var(--hand); font-size: 24px; color: var(--pencil); }
 
 /* ------------------------------------------------------------------ cassette deck */
 .deck {

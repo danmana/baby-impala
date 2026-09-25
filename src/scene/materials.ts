@@ -24,8 +24,8 @@ export class Materials {
     add('steel', std({ color: 0x9a9a9a, metalness: 1.0, roughness: 0.32 }));
     add('steel_dark', std({ color: 0x3a3a3c, metalness: 1.0, roughness: 0.45 }));
     add('gunmetal', std({ color: 0x1c1c1f, metalness: 0.85, roughness: 0.38 }));
-    add('silver', std({ color: 0xdcdce0, metalness: 1.0, roughness: 0.16 }));
-    add('nickel', std({ color: 0xbdb6a8, metalness: 1.0, roughness: 0.25 }));
+    add('silver', std({ color: 0xc9c9cc, metalness: 1.0, roughness: 0.28 }));
+    add('nickel', std({ color: 0x9e978a, metalness: 1.0, roughness: 0.38 }));
     add('iron', std({ color: 0x3a3632, metalness: 0.9, roughness: 0.62 }));
     add('brass', std({ color: 0xb58a3c, metalness: 1.0, roughness: 0.34 }));
     add('bowtie', std({ color: 0xd2b060, metalness: 1.0, roughness: 0.25 }));
@@ -37,7 +37,7 @@ export class Materials {
     add('leather', std({ color: 0x4a2c1a, roughness: 0.62 }));
     add('leather_dark', std({ color: 0x21150c, roughness: 0.6 }));
     add('antler', std({ color: 0xb7a58a, roughness: 0.6 }));
-    add('ivory', std({ color: 0xe0d6c0, roughness: 0.38 }));
+    add('ivory', std({ color: 0xcdbfa2, roughness: 0.5 }));
     add('felt', std({ color: 0x0a0a0a, roughness: 1.0, envMapIntensity: 0.05 }));
     add('felt_red', std({ color: 0x4e0a0e, roughness: 1.0, envMapIntensity: 0.05 }));
     add('carpet', std({ color: 0x0c0c0c, roughness: 1.0, envMapIntensity: 0.1 }));

@@ -117,7 +117,7 @@ export class Hud {
 
     const footer = h('footer', { class: 'footer' },
       h('div', {}, 'Unofficial fan page'),
-      h('div', { html: 'Made by <a href="https://x.com/danmana" target="_blank" rel="noopener">@danmana</a> and <a href="https://www.anthropic.com/claude-opus-5-5" target="_blank" rel="noopener">Opus 5.5</a> · ' }),
+      h('div', { html: 'Made by <a href="https://x.com/danmana" target="_blank" rel="noopener">@danmana</a> and <a href="https://www.anthropic.com/claude-opus-5-5" target="_blank" rel="noopener">Opus 5.5</a> · <a href="/about.html">About</a> • ' }),
     );
     const credits = h('details', {},
       h('summary', {}, 'Credits'),

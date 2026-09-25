@@ -255,6 +255,12 @@ async function main() {
     progress.set('warm', 0.15 + 0.8 * ((i + 1) / groups.length));
     await nextFrame();
   }
+  // one frame through the outline pass so its shaders are ready before the first hover
+  if (trunk.items[0]) {
+    stage.select([trunk.items[0]]);
+    stage.render(0);
+    stage.select([]);
+  }
   hidden.forEach((o) => (o.visible = false));
   await uiDone;
   progress.done('warm');
@@ -264,6 +270,7 @@ async function main() {
   const deck = new Deck(ui, music, (n) => audio.play(n, { gain: 0.9 }));
   const overlay = new Overlay(ui, [...HOTSPOTS, trapSpot], (s) => openHotspot(s), () => [car.root], (id) => sigils.positionOf(id));
   overlay.onHover = (id) => (sigils.hovered = id);
+  sigils.visibleTest = (id) => overlay.isVisible(id);
   overlay.setExplodedLabels(exploder.labels);
   const trapMarkerPos = sigils.positionOf('trap')!;
 
@@ -289,6 +296,10 @@ async function main() {
   }
 
   function openHotspot(s: Hotspot) {
+    if (s.id === 'trap') {
+      openTrunkItem('trap');
+      return;
+    }
     const actions: { label: string; run: () => void }[] = [];
     if (s.id === 'plates') actions.push({ label: 'Swap plates', run: flipPlates });
     if (s.id === 'spotlights') {
@@ -329,6 +340,9 @@ async function main() {
     if (director.inIntro) return;
     lore.close();
     overlay.showTag(null);
+    hoveredKey = null;
+    selectedKey = null;
+    stage.select([]);
     const from = director.view;
     hud.setView(v);
     if (from === 'trunk' && v !== 'trunk') trunk.open(false);
@@ -399,8 +413,67 @@ async function main() {
     return null;
   }
   const itemOf = (o: THREE.Object3D | null) => (o?.userData.item as string | undefined) ?? null;
+
+  // the trunk inventory, paged through from the lore page: the trap, then the gear
+  const present = new Set(trunk.items.map((m) => m.userData.item as string));
+  const inventory = ['trap', ...Object.keys(TRUNK_ITEMS).filter((k) => present.has(k))];
+  const trapMeshes: THREE.Object3D[] = [];
+  car.root.traverse((o) => {
+    if ((o as THREE.Mesh).isMesh && isTrap(o)) trapMeshes.push(o);
+  });
+  const meshesOf = (key: string) => (key === 'trap' ? trapMeshes : trunk.items.filter((m) => m.userData.item === key));
+  let hoveredKey: string | null = null;
+  let selectedKey: string | null = null;
+  function updateOutline() {
+    const keys = director.view === 'trunk' ? new Set([hoveredKey, selectedKey].filter((k): k is string => !!k)) : new Set<string>();
+    stage.select([...keys].flatMap(meshesOf));
+  }
+  // page through the gear the way you'd read it: the trap, then the board row by
+  // row, left to right, then the tray from the back row forwards
+  let ordered: string[] | null = null;
+  function inventoryOrder() {
+    if (ordered) return ordered;
+    const box = new THREE.Box3();
+    const onBoard = (k: string) => {
+      for (let o: THREE.Object3D | null = meshesOf(k)[0]; o; o = o.parent) if (o.name === 'false_floor') return true;
+      return false;
+    };
+    const at = new Map(inventory.slice(1).map((k) => {
+      box.makeEmpty();
+      meshesOf(k).forEach((m) => box.expandByObject(m));
+      return [k, box.getCenter(new THREE.Vector3())] as const;
+    }));
+    const keyOf = (k: string) => {
+      const p = at.get(k)!;
+      return onBoard(k) ? [0, -Math.round(p.y / 0.12), p.z] : [1, -Math.round(p.x / 0.14), p.z];
+    };
+    const items = inventory.slice(1).sort((a, b) => {
+      const ka = keyOf(a), kb = keyOf(b);
+      return ka[0] - kb[0] || ka[1] - kb[1] || ka[2] - kb[2];
+    });
+    const list = ['trap', ...items];
+    // only remember the order once the board is standing (positions move while it opens)
+    if (trunk.progress >= 1) ordered = list;
+    return list;
+  }
+  function openTrunkItem(key: string) {
+    const inv = inventoryOrder();
+    const i = inv.indexOf(key);
+    const n = inv.length;
+    selectedKey = key;
+    lore.show(key === 'trap' ? TRAP : TRUNK_ITEMS[key].lore, [], {
+      index: i, total: n,
+      prev: () => openTrunkItem(inv[(i - 1 + n) % n]),
+      next: () => openTrunkItem(inv[(i + 1) % n]),
+    });
+    updateOutline();
+  }
+  lore.onClose = () => {
+    selectedKey = null;
+    updateOutline();
+  };
+
   let down: { x: number; y: number } | null = null;
-  let hoverTick = 0;
   const canvas = renderer.domElement;
   canvas.addEventListener('pointerdown', (e) => {
     down = { x: e.clientX, y: e.clientY };
@@ -413,24 +486,42 @@ async function main() {
     if (!o) return;
     const item = itemOf(o);
     if (o.userData.hotspot === 'plates') flipPlates();
-    else if (item && director.view === 'trunk') {
-      const it = TRUNK_ITEMS[item];
-      if (it) lore.show(it.lore);
-    } else if (isTrap(o) && director.view === 'trunk') lore.show(TRAP);
+    else if (item && director.view === 'trunk' && TRUNK_ITEMS[item]) openTrunkItem(item);
+    else if (isTrap(o) && director.view === 'trunk') openTrunkItem('trap');
   });
+  // hover picking runs at most once a frame, always on the latest pointer position
+  let hoverAt: { x: number; y: number } | null = null;
   canvas.addEventListener('pointermove', (e) => {
     if (e.pointerType === 'touch' || !started || e.buttons) return;
-    if (++hoverTick % 2) return;
-    const o = pick(e.clientX, e.clientY);
+    if (!hoverAt) requestAnimationFrame(() => {
+      const at = hoverAt!;
+      hoverAt = null;
+      hover(at.x, at.y);
+    });
+    hoverAt = { x: e.clientX, y: e.clientY };
+  });
+  function hover(x: number, y: number) {
+    const o = pick(x, y);
     const item = itemOf(o);
     let label: string | null = null;
     if (item && director.view === 'trunk' && trunk.progress > 0.5) label = TRUNK_ITEMS[item]?.name ?? null;
     else if (o && isTrap(o) && director.view === 'trunk') label = 'Devil’s Trap';
     else if (o?.userData.hotspot === 'plates') label = car.plateFront.ohio ? 'CNK 80Q3, Ohio' : 'KAZ 2Y5, Kansas';
-    overlay.showTag(label, e.clientX, e.clientY);
+    overlay.showTag(label, x, y);
     canvas.style.cursor = label ? 'pointer' : 'grab';
+    const key = director.view !== 'trunk' || !label ? null : item ?? 'trap';
+    if (key !== hoveredKey) {
+      hoveredKey = key;
+      updateOutline();
+    }
+  }
+  canvas.addEventListener('pointerleave', () => {
+    overlay.showTag(null);
+    if (hoveredKey) {
+      hoveredKey = null;
+      updateOutline();
+    }
   });
-  canvas.addEventListener('pointerleave', () => overlay.showTag(null));
   window.addEventListener('keydown', (e) => {
     if (!started || e.target instanceof HTMLInputElement) return;
     const views: ViewName[] = ['normal', 'exploded', 'trunk', 'interior'];
@@ -564,7 +655,7 @@ async function main() {
 
   (window as unknown as Record<string, unknown>).__baby = {
     stage, car, lights, camera, director, mats, ground, motel, atmo, exploder, trunk, overlay, sigils, rig, envs,
-    setView, toggle, setLight, music, audio, THREE, PRESETS,
+    setView, toggle, setLight, music, audio, THREE, PRESETS, openTrunkItem,
     /** dev only: patch a preset and rebuild its environment maps live */
     tuneEnv: (name: PresetName, patch: Partial<(typeof PRESETS)['moon']>) => {
       Object.assign(PRESETS[name], patch);

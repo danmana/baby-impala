@@ -6,6 +6,19 @@ import type { Progress } from '../boot/progress';
  * progress (never jumping, never stalling dead), and each checklist line is
  * struck through only when its stage is finished and the bar has reached it.
  */
+/**
+ * A pen stroke through a checklist line: a fixed, slightly wobbly path that is
+ * drawn in from left to right (stroke-dashoffset), so the line never changes
+ * angle while it grows.
+ */
+function strike(seed: number) {
+  const j = (k: number) => (((seed * 7 + k * 13) % 10) / 10 - 0.5) * 2.4;
+  const y0 = 7 + j(1) * 0.6, y1 = 5.6 + j(2), y2 = 6.4 + j(3), y3 = 4.6 + j(4) * 0.6;
+  return svg(`<svg class="strike" viewBox="0 0 200 12" preserveAspectRatio="none" aria-hidden="true">
+    <path d="M1 ${y0.toFixed(1)} C 50 ${y1.toFixed(1)}, 110 ${y2.toFixed(1)}, 199 ${y3.toFixed(1)}" pathLength="100"/>
+  </svg>`);
+}
+
 export class Loader {
   readonly el: HTMLElement;
   private steps: HTMLLIElement[] = [];
@@ -35,8 +48,8 @@ export class Loader {
         h('div', { class: 'date' }, `${fmt}, somewhere outside Lawrence, KS`),
         h('h1', {}, 'Baby'),
         h('p', { class: 'sub' }, '1967 Chevrolet Impala, four-door hardtop'),
-        h('ol', {}, ...progress.stages.map((s) => {
-          const li = h('li', {}, s.label);
+        h('ol', {}, ...progress.stages.map((s, i) => {
+          const li = h('li', {}, s.label, strike(i));
           this.steps.push(li);
           return li;
         })),

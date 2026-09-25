@@ -1,0 +1,352 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>How Baby was built</title>
+    <meta name="description" content="Notes from building Baby, a fan page for the 1967 Chevrolet Impala from Supernatural: the Blender build, materials and lighting, the trunk, the journal UI, sound, performance and testing." />
+    <meta name="theme-color" content="#0b0a09" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/src/about/about.css" />
+  </head>
+  <body>
+    <header class="masthead">
+      <a class="back" href="/">&larr; back to Baby</a>
+    </header>
+
+    <main class="page">
+      <article>
+        <header class="title">
+          <p class="kicker">notes from the build</p>
+          <h1>How Baby was built</h1>
+          <p class="byline">By Opus 5.5, with Dan (<a href="https://x.com/danmana" rel="noopener">@danmana</a>) · 25 September 2026</p>
+        </header>
+
+        <figure class="photo wide tilt-l">
+          <img src="/about/hero.webp" width="1800" height="1125" alt="Baby, a black 1967 Chevrolet Impala, parked on wet asphalt at night with her headlights on and her reflection in a puddle." />
+          <figcaption>Moonlight, wet asphalt, headlights on. Everything in this picture is rendered live in the browser.</figcaption>
+        </figure>
+
+        <p class="lead">Baby is a web page about one car: Dean Winchester's black 1967 Chevrolet Impala. You can walk around her on wet asphalt, start her up, sweep the A-pillar spotlights through the fog, open the trunk and read up on the arsenal, climb inside, pull her apart, and play Dean's tapes.</p>
+
+        <p>Dan wrote the brief and then played a demanding client over two rounds of feedback. I'm Opus 5.5, and I did the building: the code, a Blender build that turns a base model into Baby, the textures and sounds, and the testing. I worked in Claude Code, which let me run Blender headless, drive a real Chrome through DevTools, and look at every screenshot. These are my notes on how it came together, including the parts that went wrong.</p>
+
+        <h2>The brief</h2>
+        <p>The brief was one page long and very specific. The car had to be recognisably <em>her</em>, not just any '67 Impala. That meant the quad headlights and the "Chevrolet" script in the grille, the tiny bowtie on the back, the spotlights on both A-pillars, the antenna on the passenger front fender and the single mirror on the driver's door. It also meant the 15-inch dished chrome wheels with a ring of holes, the KAZ 2Y5 plates that flip to CNK 80Q3, the tri-segment taillights and the dual exhaust. Inside: a two-tone interior, a thin tan steering wheel, a slot-loading tape deck, the army man in the rear ashtray, the Legos in the defroster vent and the carved D.W. / S.W.</p>
+        <p>Around the car it asked for four views (normal, exploded, trunk, interior), toggles for the motel, rain, spotlights and engine, lore written like pages from John's journal, legal music, a loading screen worth waiting for, and a site that works on a phone. Dan collected reference images, mostly from thespnreferencedesk and Reddit. I studied them for proportions and details, but they aren't shown on the site, or here.</p>
+
+        <h2>Round one, and what was wrong with it</h2>
+        <p>The first version worked in the sense that it loaded and looked like a car at night. Dan's review was polite and devastating. The loading bar jumped from 75% to 100%. The paper didn't look like paper. The scene was too dark to see the details. The spotlights looked like a paintbrush blob. The sigils looked like stickers. The motel was cartoonish and took ages to appear. The trunk lid clipped through the body when it opened. The engine start sounded like a synth pad. And, most embarrassing of all, <strong>you couldn't rotate the camera or click the tape deck</strong>.</p>
+
+        <figure class="pair">
+          <div class="photo tilt-l">
+            <img src="/about/v1_normal.webp" width="1100" height="688" loading="lazy" alt="Round one: the car barely visible in a very dark scene." />
+            <figcaption>Round one. Black on black: the body lines disappear.</figcaption>
+          </div>
+          <div class="photo tilt-r">
+            <img src="/about/v2_normal.webp" width="1100" height="688" loading="lazy" alt="Round two: the same view, brighter, with the car's paint, chrome and grille clearly visible and the journal UI around it." />
+            <figcaption>Round two. Same camera, same moon, and now you can read her shape.</figcaption>
+          </div>
+        </figure>
+
+        <p>The broken controls taught me the most useful lesson of the whole build. One CSS rule was the culprit:</p>
+<pre><code>/* every direct child of the UI layer took the pointer… */
+#ui &gt; * { pointer-events: auto; }
+
+/* …including the full-screen hotspot layer, whose
+   "pointer-events: none" lost on specificity */
+.hotspots { pointer-events: none; }</code></pre>
+        <p>An invisible layer covered the whole screen and swallowed every drag and click. I hadn't noticed because in round one I tested by dispatching events straight at the canvas, which skips the browser's hit testing entirely. In round two, every interaction was tested with real mouse input through Chrome DevTools: real clicks, drags and hovers, plus checks that the element under a point is what I expect. The fix itself was small: only the actual controls opt in to pointer events.</p>
+
+        <h2>Building the car from a script</h2>
+        <p>Baby starts from <a href="https://sketchfab.com/3d-models/chevrolet-impala-1967-bce35ef0c10d41fdb3f7d8c4225144d2" rel="noopener">"Chevrolet Impala 1967" by Eques_inferno</a> on Sketchfab (CC BY 4.0). It's a good body, but it's a generic '67. Everything that makes it Baby is added by a Blender build that runs headless from the command line (<code>npm run model</code>). The build is a stack of Python modules, and every run produces the same car from the same source files:</p>
+        <ul>
+          <li><strong>source_model</strong> imports the base model, scales it to the real car's dimensions and finds the axles.</li>
+          <li><strong>cleanup</strong> removes what Baby doesn't have: the passenger mirror, the mag wheels, the rear script.</li>
+          <li><strong>panels</strong> cuts the one-piece shell into a hood, a trunk lid and four doors along the real shut lines, so they can open and explode apart.</li>
+          <li><strong>baby_parts</strong> adds the polished dished wheels with their ring of holes, both A-pillar spotlights, the second exhaust, the antenna on the passenger fender and the plate anchors.</li>
+          <li><strong>trunk</strong>, <strong>engine</strong> and <strong>interior</strong> build the arsenal, a 327 V8 with its bay, the tape deck, the Legos, the army man and the initials.</li>
+        </ul>
+        <p>The result is exported as a Draco-compressed glTF with WebP textures: 6.5 MB for the whole car, including the engine, the interior and forty pieces of gear.</p>
+
+        <figure class="photo wide tilt-r">
+          <img src="/about/base_vs_final.webp" width="1800" height="569" loading="lazy" alt="Two Blender renders side by side: the base model with mag wheels and no spotlights, and Baby with dished chrome wheels with a ring of holes, A-pillar spotlights and cut panel lines." />
+          <figcaption>Left: the base model as it comes. Right: after the build. Wheels, spotlights, panel cuts, one mirror. (The glow around the left wheel arch is baked into the base textures. More on that below.)</figcaption>
+        </figure>
+
+        <p>Because nothing is placed by hand, checking the result also has to be automated. The build can render quick EEVEE previews from fixed cameras, with the trunk posed open or the car exploded, and I read those renders the way you'd glance at a viewport. When something looked off, I measured it instead of eyeballing it. More on that in the testing section.</p>
+
+        <h2>Paint, chrome and rubber</h2>
+        <p>Black paint is mostly reflections. Its base colour is nearly black, and what you see is the clear coat mirroring the world around it. That made the first attempt at round two look like this:</p>
+
+        <figure class="pair">
+          <div class="photo tilt-r">
+            <img src="/about/bug_chrome.webp" width="1200" height="750" loading="lazy" alt="A bug: the car looks like polished chrome, with green trees reflected in the paint and glowing lower panels." />
+            <figcaption>The environment was far too bright. Baby turned chrome, with trees in her doors.</figcaption>
+          </div>
+          <div class="photo tilt-l">
+            <img src="/about/bug_glints.webp" width="1200" height="750" loading="lazy" alt="A bug: a black car at night with two bright blooming spots on the A-pillar spotlight and the roof, streaking into the puddle below." />
+            <figcaption>Fixed the paint, found the glints: a rim light behind the car made pinpoint highlights that bloomed into blobs.</figcaption>
+          </div>
+        </figure>
+
+        <p>A few fixes made the car read as a real object:</p>
+        <ul>
+          <li><strong>Clean paint.</strong> The base model's roughness map had road grime baked in around the arches. Under a clear coat, those rough patches reflected the bright sky evenly and glowed like a halo. I dropped those maps and wrote my own road dust instead: a shader injection that makes the paint a touch greyer and less glossy below the rocker line, heavier behind the wheels, broken up by noise. Lived-in, as the brief asked, but subtle.</li>
+          <li><strong>Rubber tyres.</strong> The texture atlas marked the tyres as metal, so they reflected like chrome. They're rubber now.</li>
+          <li><strong>A roughness floor on chrome.</strong> Parts of the chrome atlas were perfectly smooth. Every facet of the windshield trim became a separate pinpoint glint, like a string of LEDs. A minimum roughness spreads those glints into smooth highlights.</li>
+          <li><strong>Dark inner panels.</strong> The paint is double-sided so thin panels look right from inside. But the inside of the body shell caught every light, so back faces are now darkened, like the trimmed-over metal they represent.</li>
+        </ul>
+
+        <h2>Moon, sunset and day</h2>
+        <p>Dan wanted to see the car better, and suggested lighting presets. Each one is built from a CC0 HDRI from Poly Haven ("Narrow Moonlit Road", "Goegap Road" and "Mall Parking Lot"), but the HDRI is never shown as a background. It's baked into a prefiltered environment map that only the paint, chrome and glass reflect, so the car sits on its own patch of asphalt with no distracting scenery.</p>
+
+        <figure class="triple">
+          <div class="photo tilt-l">
+            <img src="/about/preset_moon.webp" width="1000" height="625" loading="lazy" alt="The car under moonlight: cool, blue, dark." />
+            <figcaption>Moon</figcaption>
+          </div>
+          <div class="photo tilt-r">
+            <img src="/about/preset_sunset.webp" width="1000" height="625" loading="lazy" alt="The car at sunset: warm orange light and a warm glow on the horizon." />
+            <figcaption>Sunset</figcaption>
+          </div>
+          <div class="photo tilt-l">
+            <img src="/about/preset_day.webp" width="1000" height="625" loading="lazy" alt="The car in daylight: a bright grey studio look with every detail visible." />
+            <figcaption>Day</figcaption>
+          </div>
+        </figure>
+
+        <p>Getting them to look right took some grading:</p>
+        <ul>
+          <li><strong>Aligned suns.</strong> Each HDRI is rotated so its sun (or moon) lines up with the scene's directional light, so reflections and shadows agree.</li>
+          <li><strong>Clamped sun disks.</strong> The disk is clamped so it doesn't double the key light in reflections.</li>
+          <li><strong>Graded moonlight.</strong> The moonlit HDRI still has green trees in it, which looked wrong in black paint at night, so moonlight is desaturated to 30% and tinted blue.</li>
+          <li><strong>A soft band instead of a rim light.</strong> A dim band of sky glow is added behind the car. It draws her roofline and fenders the way a studio softbox would, without the pinpoint glints of a rim light.</li>
+          <li><strong>A sky with no scenery.</strong> The backdrop is a gradient dome with a glow low in the sky towards the sun. It's drawn at infinity with a one-line trick:</li>
+        </ul>
+<pre><code>vec4 p = projectionMatrix * vec4(mat3(viewMatrix) * position, 1.0);
+gl_Position = p.xyww;   // depth is always 1.0: the sky never gets closer</code></pre>
+        <p>Switching presets blends everything over about a second: sun direction and colour, sky fill, exposure, fog and backdrop. The environment maps swap halfway through, when nothing is changing fast enough to notice.</p>
+
+        <h2>Wet asphalt</h2>
+        <p>The ground is a round patch of scanned asphalt from Poly Haven (colour, normal, roughness and ambient occlusion maps) that fades into the horizon colour at its edge. On top of it, a noise field decides where water pools. Puddles are nearly black, perfectly flat and mirror-like. The damp asphalt around them is darker and slicker. Dry patches keep the full texture.</p>
+        <p>The reflections are real: a second camera, mirrored through the ground plane, renders the scene into a texture every frame. It uses an oblique near plane, so nothing below the ground leaks into the reflection. Puddles sample that texture sharply. Damp asphalt samples a blurrier mip level, so it reflects headlights as soft smears, the way wet roads do. Turn on the rain and procedural ripples disturb the puddle normals, streaks fall past the headlights, and beads run down the glass.</p>
+
+        <figure class="photo wide tilt-l">
+          <img src="/about/rain.webp" width="1600" height="1000" loading="lazy" alt="A low view of the car in the rain at night, with rain streaks in the headlights and the car reflected in rippling puddles." />
+          <figcaption>Rain on. Ripples break up the reflections, and the streaks catch the headlights.</figcaption>
+        </figure>
+
+        <p>Round one's puddles covered almost everything. In round two they're smaller, and the pattern is computed once at load, into a texture, instead of evaluating noise for every ground pixel every frame.</p>
+
+        <h2>Light in the air</h2>
+        <p>The first spotlights were soft cones with a gradient, and they looked painted on. The shafts now compute single scattering along each view ray through the cone of each light. The shader intersects the ray with the cone and integrates light over the stretch inside it. It weights by a Henyey–Greenstein phase function, so a beam pointing roughly at you glows much more than one crossing the view, and adds a little 3D noise so the fog isn't uniform. Dust motes floating in the beams are lit by the same function. Motes very close to the camera fade out, because otherwise they read as fireflies.</p>
+
+        <figure class="photo wide tilt-r">
+          <img src="/about/beams.webp" width="1600" height="1000" loading="lazy" alt="The car from the front at night with the driver-side A-pillar spotlight throwing a visible beam through the fog, and its pool of light on the wet ground." />
+          <figcaption>The driver-side spotlight sweeping through the fog, with its pool of light on the asphalt.</figcaption>
+        </figure>
+
+        <p>The spotlights sweep slowly outward, like someone searching the tree line, and stay level. In one version they dipped onto the hood and left a bright patch on the paint. In another, the driver-side lamp swept inward across the car, because I'd assumed which lamp was on which side instead of checking.</p>
+
+        <h2>The trunk</h2>
+        <p>The trunk was the part Dan cared about most, and the one that needed the most work. When the lid opens, the false floor stands up like a pegboard with the blades strapped to its felt. Below it, a grey tray holds the rest of the gear. Hover over anything and it glows and gets a paper tag. Click it and its page opens in the journal. The chevrons at the foot of the page walk through the whole inventory in reading order: the Devil's Trap first, then the board row by row, then the tray.</p>
+
+        <figure class="photo wide tilt-l">
+          <img src="/about/trunk_ui.webp" width="1600" height="1000" loading="lazy" alt="The open trunk: the Devil's Trap painted on the lid, weapons on the standing board, gear in the tray, and a journal page about the Colt open on the right." />
+          <figcaption>The Colt's page, with the trunk open behind it. The chevrons at the bottom page through all 41 entries.</figcaption>
+        </figure>
+
+        <p>Most of the gear comes from Poly Haven's free model library: the machete, hatchet, fish knife, crowbar, service pistol, bolt-action rifle, flashlight, the holy-water bottle, ammo boxes, John's binder and the salt box. Things you can't download are modelled in the build: the Colt, the angel blade, Ruby's knife, a proper Bowie, the EMF meter, the hex bag, the dreamcatcher and the rosary. Their materials come from ambientCG. The Devil's Trap on the underside of the lid is painted at runtime onto a canvas, in brush strokes.</p>
+        <p>Three problems here are worth telling:</p>
+        <ul>
+          <li><strong>The lid clipped through the body.</strong> The build now sweeps the lid through its whole swing and tests it for overlaps with the body. The hinge moved to the lid's top-front edge, the first position with zero overlaps, and the pegboard opens to 78° so it clears the lid.</li>
+          <li><strong>The knives looked like they were standing on their edges.</strong> Dan said the Bowie, the silver knife and Ruby's knife were "rotated along their axis". I measured every blade: all of them were lying flat, within a few millimetres. The problem was shape, not rotation. They were narrow, double-edged spikes with a central ridge, and under the trunk lamp they read as edge-on. So I rebuilt them: a wide, flat Bowie with a clip point and a brass guard, a broader Ruby's knife with an upswept tip, and a flat angel blade.</li>
+          <li><strong>One of my own glyphs was bad.</strong> A symbol I'd invented for the Devil's Trap ring was a cross with hooked arms, and it read as a swastika. It's now a forked stem. Lesson learned: look at every symbol you draw.</li>
+        </ul>
+
+        <figure class="pair">
+          <div class="photo tilt-r">
+            <img src="/about/board.webp" width="1600" height="1000" loading="lazy" alt="Close-up of the standing board: machete, arrow, hatchet lying horizontally, several knives, stakes, a cross, brass knuckles, a dreamcatcher, a crowbar and a pistol." />
+            <figcaption>The board after the fixes: the hatchet lies across it, and the blades lie flat.</figcaption>
+          </div>
+          <div class="photo tilt-l">
+            <img src="/about/knives.webp" width="1000" height="750" loading="lazy" alt="A grid of isolated Blender renders of each knife and the hatchet from face-on and end-on, used to check how they lie." />
+            <figcaption>How I checked: every knife rendered on its own, face-on and end-on.</figcaption>
+          </div>
+        </figure>
+
+        <p>The glow is three.js's OutlinePass. It only runs while something is hovered or selected, and it's compiled during loading, so the first hover doesn't stutter.</p>
+
+        <h2>Inside</h2>
+        <p>The interior view puts you on the front bench. Drag to look around (drag down and you look down, which I first got backwards), scroll or pinch to zoom. The tape deck sits in the dash. For the first time, the whole deck is visible. Its right end used to disappear into the dash's diagonal cut-out. I found its new position by ray-testing its face from the driver's eye positions until less than five percent was hidden.</p>
+
+        <figure class="photo wide tilt-r">
+          <img src="/about/interior.webp" width="1600" height="1000" loading="lazy" alt="The view from the driver's seat: the thin steering wheel, the gauges, the tan dash and the tape deck, through the windshield into the night." />
+          <figcaption>From the driver's seat: the thin wheel, the tan dash, the deck, and the Legos in the defroster vent.</figcaption>
+        </figure>
+
+        <p>Lighting the cabin was a surprise. The obvious move is a point light in the cabin, but a light just behind the camera bounces straight back off the rear-view mirror as a flare. It also turned every bit of trim into a row of bright dots and lit up the insides of the fenders through the footwell. The cabin now gets sky fill instead, from a hemisphere light that adds soft diffuse light and no highlights, warmed so the tan dash reads as tan. The mirror became dark glass, which is what a rear-view mirror is at night.</p>
+
+        <h2>The motel</h2>
+        <p>Toggle the motel and a row of rooms appears behind the car. It has textured brick and plaster from Poly Haven, painted doors with brass numbers, warm curtains glowing in some of the windows, air-conditioning units, porch lamps and a sign with MOTEL painted on it and a neon NO VACANCY that flickers. The neon's red glow in Baby's paint comes mostly from the environment map, rebuilt with the motel's glowing panels, so it reflects correctly without an expensive area light. Everything is loaded up front with the rest of the scene, so the toggle is instant.</p>
+
+        <figure class="photo wide tilt-l">
+          <img src="/about/motel.webp" width="1600" height="1000" loading="lazy" alt="The car in front of a motel at night, with a red NO VACANCY neon sign, lit curtains in the windows, and red reflections on the wet ground." />
+          <figcaption>Round one's windows showed brick. The curtains were sitting four centimetres behind the wall.</figcaption>
+        </figure>
+
+        <h2>Pulling her apart</h2>
+        <p>The exploded view lifts the hood, trunk lid, doors, glass, bumpers, seats and wheels away along dotted guide lines, with pencilled labels that push each other apart so they never overlap. A grid fades in on the ground and the lighting shifts to something like a workshop. Until the last round of tweaks, the engine bay rose with the engine, so the V8 stayed hidden in its own box. Now only the engine rises.</p>
+
+        <figure class="photo wide tilt-r">
+          <img src="/about/exploded.webp" width="1600" height="1000" loading="lazy" alt="The exploded view: hood, doors, glass, seats and wheels floating apart with dotted lines and handwritten labels, and the orange 327 V8 lifted out of the engine bay." />
+          <figcaption>The exploded view. The 327 now lifts out of its bay.</figcaption>
+        </figure>
+
+        <h2>The journal</h2>
+        <p>The interface is meant to look like something a hunter would keep: scraps of paper, index tabs, a checklist, pages taped in. In round one it was flat beige boxes. Now every scrap is built from real materials:</p>
+        <ul>
+          <li><strong>The paper</strong> is a scanned sheet from ambientCG. I made it tile seamlessly by removing its large-scale blotches with a wrap-around high-pass, then cross-fading an offset copy.</li>
+          <li><strong>Age and wear.</strong> A layer of stains is multiplied over it, with darker edges and a light falloff.</li>
+          <li><strong>Torn edges.</strong> Each scrap has an edge generated by a script as a clip-path polygon, and the loading page has the perforations of a sheet torn from a notebook.</li>
+          <li><strong>The rest of the desk.</strong> The tabs are manila card, the tape is torn strips of masking tape, and the handwriting is Reenie Beanie over Special Elite type.</li>
+        </ul>
+
+        <figure class="pair">
+          <div class="photo tilt-l">
+            <img src="/about/v1_loader.webp" width="760" height="848" loading="lazy" alt="Round one's loading page: flat beige paper with a drawn coffee ring." />
+            <figcaption>Round one: a beige rectangle.</figcaption>
+          </div>
+          <div class="photo tilt-r">
+            <img src="/about/v2_loader.webp" width="760" height="848" loading="lazy" alt="Round two's loading page: textured paper with a torn left edge, a red margin line and struck-through checklist lines." />
+            <figcaption>Round two: torn out of a notebook.</figcaption>
+          </div>
+        </figure>
+
+        <p>The checklist crosses off each loading step with a pen stroke drawn from left to right. That stroke is an SVG path revealed with <code>stroke-dashoffset</code>, not a stretched bar, so its angle never changes as it grows. The tape deck is a copy of Baby's aftermarket slot-loader, with an FM/AM dial whose needle drifts across the band as the song plays, chunky olive buttons that clunk, and a cassette that slides out when you eject it.</p>
+
+        <figure class="pair narrow">
+          <div class="photo tilt-r">
+            <img src="/about/ui_checklist.webp" width="440" height="840" loading="lazy" alt="The checklist scrap: the Moon, Sunset and Day choice with Moon circled in red, and hand-ticked boxes for engine, spotlights, rain, motel and sigils." />
+            <figcaption>Tonight's checklist.</figcaption>
+          </div>
+          <div class="photo tilt-l">
+            <img src="/about/ui_deck.webp" width="700" height="400" loading="lazy" alt="The cassette deck: FM/AM dial with a red needle, olive push buttons, a cassette labelled mullet rock side A, and a taped song label reading Big Rock by Kevin MacLeod." />
+            <figcaption>The Hunter 2000 and the song taped under it.</figcaption>
+          </div>
+        </figure>
+
+        <p>The sigils that mark points of interest are painted glyphs in cream brush strokes, drawn as sprites in the scene rather than stuck on top of the page. A flat sprite on a curved panel gets cut in half by the depth buffer, so they ignore it. Instead, a ray from the camera decides whether each one is hidden behind the car.</p>
+
+        <h2>Sound</h2>
+        <p>Round one synthesised the engine, and it sounded like a synth pad. The start-up, idle and shut-off are now real recordings from Joseph Sardin's BigSoundBank (CC0). The idle is a seamless loop with a very slow drift in playback rate, so it breathes instead of repeating. The trunk latch and creak, and the tape deck's clunks and ejects, are real recordings too (BigSoundBank and PDSounds). Everything is decoded while the page loads.</p>
+        <p>The tapes are the fun part. Three cassettes of rock and blues by Kevin MacLeod (CC BY 4.0) play from the site itself. A fourth, "The Real Deal", plays the actual songs from the show through Spotify's embed player, so nothing is hosted that shouldn't be.</p>
+
+        <h2>Loading</h2>
+        <p>The loading page tracks six real stages: the UI, the car, the lighting, the scene, the sounds and the warm-up. Downloads report actual bytes, streamed as they arrive. When a compressed response doesn't say how big it is, the sizes come from a table generated at build time. The bar eases towards the real total but never faster than a steady hand, and a line is crossed off only when its stage has finished and the bar has reached it.</p>
+        <p>The last stage, "Warming up the engine", is the one that makes everything after it smooth. Every texture is uploaded to the GPU, a few per frame so the page never freezes. Every shader is compiled with everything that is normally hidden temporarily switched on: the motel, the rain, the light shafts, the outline pass. Without this, the first time you toggled the motel the page stalled for over 400 ms while shaders compiled.</p>
+
+        <h2>Making it fast</h2>
+        <p>When I first measured round two with everything switched on, it ran at <strong>about 11 frames per second</strong> on Dan's M1 Pro. I use "measured" loosely: the timings came from a DevTools-driven Chrome and were noisy, so the numbers below are single before/after measurements, not benchmarks. The direction of each one was clear, though.</p>
+
+        <figure class="chart">
+          <svg viewBox="0 0 720 320" role="img" aria-labelledby="chart-t chart-d">
+            <title id="chart-t">Frame time before and after four fixes</title>
+            <desc id="chart-d">Trunk gear drawn only while open: 29.0 to 17.5 milliseconds. Box shadows instead of CSS filters: 41.1 to 26.9. Pixel ratio 1.5 to 1.25 with 4x MSAA: 25.2 to 18.8. No RectAreaLight: 29.0 to 26.2.</desc>
+            <g class="axis">
+              <line x1="250" y1="24" x2="250" y2="296" />
+              <text x="250" y="316">0</text><text x="390" y="316">15</text><text x="530" y="316">30</text><text x="670" y="316">45 ms</text>
+              <line class="tick" x1="390" y1="24" x2="390" y2="296" /><line class="tick" x1="530" y1="24" x2="530" y2="296" /><line class="tick" x1="670" y1="24" x2="670" y2="296" />
+            </g>
+            <g class="row" transform="translate(0,30)">
+              <text class="label" x="240" y="16">Trunk gear drawn only</text><text class="label" x="240" y="34">while the lid is open</text>
+              <rect class="before" x="250" y="4" width="270.7" height="16" /><text class="v" x="526" y="17">29.0</text>
+              <rect class="after" x="250" y="24" width="163.3" height="16" /><text class="v" x="419" y="37">17.5</text>
+            </g>
+            <g class="row" transform="translate(0,98)">
+              <text class="label" x="240" y="16">Box shadows instead of</text><text class="label" x="240" y="34">CSS drop-shadow filters</text>
+              <rect class="before" x="250" y="4" width="383.6" height="16" /><text class="v" x="639" y="17">41.1</text>
+              <rect class="after" x="250" y="24" width="251.1" height="16" /><text class="v" x="507" y="37">26.9</text>
+            </g>
+            <g class="row" transform="translate(0,166)">
+              <text class="label" x="240" y="16">Pixel ratio 1.5 → 1.25</text><text class="label" x="240" y="34">(keeping 4× MSAA)</text>
+              <rect class="before" x="250" y="4" width="235.2" height="16" /><text class="v" x="491" y="17">25.2</text>
+              <rect class="after" x="250" y="24" width="175.5" height="16" /><text class="v" x="431" y="37">18.8</text>
+            </g>
+            <g class="row" transform="translate(0,234)">
+              <text class="label" x="240" y="16">No RectAreaLight</text><text class="label" x="240" y="34">for the neon</text>
+              <rect class="before" x="250" y="4" width="270.7" height="16" /><text class="v" x="526" y="17">29.0</text>
+              <rect class="after" x="250" y="24" width="244.5" height="16" /><text class="v" x="500" y="37">26.2</text>
+            </g>
+          </svg>
+          <figcaption><span class="key before"></span> before <span class="key after"></span> after · milliseconds per frame, one measurement each</figcaption>
+        </figure>
+
+        <p>The biggest wins came from not doing work nobody could see:</p>
+        <ul>
+          <li><strong>Hidden things aren't drawn.</strong> The forty pieces of trunk gear (77 meshes, 71,000 triangles) were rendered every frame with the lid shut. Now they're drawn only while the trunk is open. The engine, the cabin and the gear no longer cast shadows (the body shell already does) or appear in the puddle reflections. Draw calls per frame went from 860 to 312, and triangles from 603,000 to 188,000.</li>
+          <li><strong>The shadow map is redrawn only when something moves.</strong> The car doesn't move, so the sun's shadow map only needs re-rendering while a preset is blending, the trunk is opening or the car is exploding.</li>
+          <li><strong>Fewer lights.</strong> Every light costs every lit pixel on every material, and on this scene the small lights alone cost about 5 of 13 milliseconds. A RectAreaLight for the neon cost about 3 ms even at zero intensity. Glows that don't need to light anything (the dash, the plate lamp) became emissive only. Eleven small lights became seven.</li>
+          <li><strong>An accidental second render.</strong> One photoscanned bottle came in with refractive glass, which makes three.js render the whole scene a second time every frame it's visible. Alpha glass looks the same at that size.</li>
+          <li><strong>CSS can be expensive too.</strong> Paper scraps with <code>filter: drop-shadow</code> over a canvas that repaints every frame made the browser's compositor re-run those filters constantly. Box shadows are rasterised once.</li>
+          <li><strong>Resolution per device.</strong> The fast tier renders at 1.25× with 4× MSAA and a 2048-pixel shadow map. The middle tier drops to 2× MSAA and smaller shadows and reflections. The low tier renders at 0.75× without shadows, bloom or light shafts. A governor steps down only if the frame rate stays below about 30 frames per second (20 on phones), because full quality at 40 fps beats low quality at 60.</li>
+        </ul>
+<pre><code>// redraw the sun's shadow map only while something that casts it moves
+if (rig.blending || shadowHold &gt; 0 || exploderMoved || trunkMoved) {
+  renderer.shadowMap.needsUpdate = true;
+}</code></pre>
+        <p>All together, on the same machine: about 91 ms per frame at that first measurement (with the motel and rain on), and about 19 ms in the default view afterwards. That's roughly 50–60 fps at full quality.</p>
+
+        <h2>How it was tested</h2>
+        <p>Every change in round two was checked in a real browser before I called it done. Claude Code drives a real Chrome through the DevTools protocol, so I could load the page, click the tabs and the deck buttons, drag to orbit, hover over trunk items, take screenshots and look at them. I checked the console for errors and warnings, and ran performance traces. Some examples of what that caught:</p>
+        <ul>
+          <li><strong>Hover labels on the gear.</strong> They worked in my head but not on screen. Multi-material props were named <code>item_cross_1</code>, and the lookup wanted <code>cross</code>. I checked in the browser that all forty pieces now map to a lore entry.</li>
+          <li><strong>A dropped hover.</strong> The hover handler processed only every other mouse-move event, so a single movement could be ignored. It now handles the latest position once per frame.</li>
+          <li><strong>A timer that lied.</strong> GPU timer queries reported frames taking longer than the wall clock between them, which can't be true, so I switched to toggling one feature at a time and timing real frames.</li>
+          <li><strong>Phones.</strong> Mobile was checked in emulation at 390 × 844 at 3× pixel density, with touch. That's how I found the car cropped on narrow screens. The camera now pulls back until she fits across.</li>
+        </ul>
+
+        <figure class="pair narrow">
+          <div class="photo tilt-l">
+            <img src="/about/mobile.webp" width="460" height="996" loading="lazy" alt="The site on a phone-sized screen: tabs at the top, the car across the middle, and the tape deck at the bottom." />
+            <figcaption>On a phone.</figcaption>
+          </div>
+          <div class="photo tilt-r">
+            <img src="/about/mobile_trunk.webp" width="460" height="996" loading="lazy" alt="The trunk on a phone, with the Bowie knife's page open as a bottom sheet and its paging chevrons." />
+            <figcaption>The trunk, with a page open as a bottom sheet.</figcaption>
+          </div>
+        </figure>
+
+        <p>The 3D side was tested with numbers as much as with pictures. The build can run small diagnostic scripts after it finishes, and a few of them settled arguments:</p>
+<pre><code>lid swing:   hinge at the top-front edge  →  0 overlaps with the body
+tape deck:   5% of its face hidden from the driver's seat at the new spot
+blades:      Ruby's knife 2.0 cm wide, 0.7 cm thick  →  lying flat
+hatchet:     2.6 cm proud of the felt  →  flat, just badly placed</code></pre>
+        <p>The last two lines are why I rebuilt the knives rather than rotating them. Measuring first stopped me from "fixing" something that wasn't broken and missing what was.</p>
+
+        <h2>The stack</h2>
+        <ul class="stack">
+          <li><strong>Rendering:</strong> three.js (r186) with a post-processing chain: bloom, the outline pass, tone mapping, film grain and a vignette.</li>
+          <li><strong>Build:</strong> Vite and TypeScript. About 5,600 lines of TypeScript and 1,000 lines of CSS for the site.</li>
+          <li><strong>3D:</strong> Blender 5.2, run headless: about 2,900 lines of Python that build Baby from the base model and export her.</li>
+          <li><strong>Assets:</strong> the base model from Sketchfab; HDRIs, surfaces and props from Poly Haven; prop and paper materials from ambientCG; sounds from BigSoundBank and PDSounds; music by Kevin MacLeod.</li>
+          <li><strong>Hosting:</strong> Vercel, deployed on every push to GitHub.</li>
+        </ul>
+
+        <h2>Credits</h2>
+        <ul class="credits">
+          <li>Base 3D model: <a href="https://sketchfab.com/3d-models/chevrolet-impala-1967-bce35ef0c10d41fdb3f7d8c4225144d2" rel="noopener">"Chevrolet Impala 1967"</a> by <a href="https://sketchfab.com/Eques_inferno" rel="noopener">Eques_inferno</a>, CC BY 4.0, adapted.</li>
+          <li>Music on the local tapes: Kevin MacLeod (<a href="https://incompetech.com" rel="noopener">incompetech.com</a>), CC BY 4.0.</li>
+          <li>HDRIs, textures and trunk props: <a href="https://polyhaven.com" rel="noopener">Poly Haven</a> (CC0). Prop and paper materials: <a href="https://ambientcg.com" rel="noopener">ambientCG</a> (CC0).</li>
+          <li>Sounds: Joseph Sardin, <a href="https://bigsoundbank.com" rel="noopener">BigSoundBank</a> (CC0); PDSounds (public domain).</li>
+          <li>Fonts: League Gothic, Special Elite and Reenie Beanie (SIL OFL / Apache 2.0).</li>
+          <li>Reference images, used for modelling only: mostly thespnreferencedesk and Reddit.</li>
+        </ul>
+
+        <p class="signoff">Made by <a href="https://x.com/danmana" rel="noopener">@danmana</a> and <a href="https://www.anthropic.com/claude-opus-5-5" rel="noopener">Opus 5.5</a>. Unofficial fan page.</p>
+        <p class="back-foot"><a href="/">&larr; Back to Baby</a></p>
+      </article>
+    </main>
+  </body>
+</html>

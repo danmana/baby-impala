@@ -4,6 +4,7 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { OutlinePass } from 'three/addons/postprocessing/OutlinePass.js';
 import { RectAreaLightUniformsLib } from 'three/addons/lights/RectAreaLightUniformsLib.js';
 import type { Quality } from './quality';
 
@@ -33,6 +34,9 @@ export class Stage {
   composer!: EffectComposer;
   bloom: UnrealBloomPass | null = null;
   grain!: ShaderPass;
+  /** warm glow around hovered / selected gear; only runs while something is selected */
+  outline!: OutlinePass;
+  private selection: THREE.Object3D[] = [];
   private renderPass!: RenderPass;
 
   constructor(private host: HTMLElement, public quality: Quality) {
@@ -65,6 +69,14 @@ export class Stage {
     this.composer = new EffectComposer(this.renderer, rt);
     this.renderPass = new RenderPass(this.scene, this.camera);
     this.composer.addPass(this.renderPass);
+    this.outline = new OutlinePass(new THREE.Vector2(size.x, size.y), this.scene, this.camera, this.selection);
+    this.outline.edgeStrength = 3.4;
+    this.outline.edgeGlow = 0.6;
+    this.outline.edgeThickness = 1.3;
+    this.outline.visibleEdgeColor.set(0xffcf8f);
+    this.outline.hiddenEdgeColor.set(0x6b4a22);
+    this.outline.enabled = this.selection.length > 0;
+    this.composer.addPass(this.outline);
     if (this.quality.bloom) {
       this.bloom = new UnrealBloomPass(new THREE.Vector2(size.x, size.y), 0.5, 0.5, 0.9);
       this.composer.addPass(this.bloom);
@@ -103,6 +115,14 @@ export class Stage {
     this.renderer.setSize(w, h);
     this.composer.setSize(w, h);
     this.composer.setPixelRatio(this.renderer.getPixelRatio());
+  }
+
+  /** outline these objects (and their children); an empty list turns the pass off */
+  select(objs: THREE.Object3D[]) {
+    this.selection.length = 0;
+    this.selection.push(...objs);
+    this.outline.selectedObjects = this.selection;
+    this.outline.enabled = objs.length > 0;
   }
 
   render(t: number) {

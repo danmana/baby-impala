@@ -65,8 +65,12 @@ def build(fa=None, ra=None):
     L.set_collection('Baby')
     # ---------------------------------------------------------------- tape deck (centre of the dash)
     deck, dial = tape_deck()
+    # slightly smaller and nudged in/up so the dash's diagonal cut-out doesn't
+    # swallow its right-hand end (placement found by ray-testing the face
+    # from the driver's seat)
     for o in (deck, dial):
-        o.location = (0.905, -0.06, 0.845)
+        o.data.transform(Matrix.Diagonal((1.0, 0.92, 0.92, 1.0)))
+        o.location = (0.895, -0.015, 0.865)
         L.bake_transform(o)
 
     # ---------------------------------------------------------------- Legos in the defroster vent
