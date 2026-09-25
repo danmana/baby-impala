@@ -14,7 +14,7 @@ npm run dev        # http://localhost:5177
 npm run build      # production build into dist/
 ```
 
-Handy URL flags while developing: `?autostart` skips the start screen, `?nointro` skips the reveal, `?light=moon|sunset|day` picks the lighting, `?quality=low|medium|high` forces a quality tier.
+Handy URL flags while developing: `?autostart` skips the start screen, `?nointro` skips the reveal, `?light=moon|sunset|day` picks the lighting, `?quality=low|medium|high` forces a quality tier. Viewers can also pick Auto / Low / Med / High in the checklist (remembered per browser), with a live FPS readout next to it.
 
 ## What's in here
 

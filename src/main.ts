@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { HDRLoader } from 'three/addons/loaders/HDRLoader.js';
 import './styles.css';
-import { detectTier, qualityFor, reducedMotion, FrameGovernor, isTouch, type Tier } from './scene/quality';
+import { detectTier, qualityFor, reducedMotion, FrameGovernor, isTouch, type Tier, type QualityMode } from './scene/quality';
 import { Stage } from './scene/stage';
 import { Materials } from './scene/materials';
 import { loadCar, type CarParts } from './scene/car';
@@ -78,8 +78,29 @@ async function loadTexture(path: string, track: ReturnType<Progress['bytes']>) {
   return t;
 }
 
+// the viewer's quality choice survives reloads (a per-browser convenience only)
+const QUALITY_KEY = 'baby.quality';
+function savedQuality(): QualityMode {
+  try {
+    const v = localStorage.getItem(QUALITY_KEY);
+    if (v === 'auto' || v === 'low' || v === 'medium' || v === 'high') return v;
+  } catch {
+    /* storage blocked */
+  }
+  return 'auto';
+}
+function saveQuality(m: QualityMode) {
+  try {
+    localStorage.setItem(QUALITY_KEY, m);
+  } catch {
+    /* storage blocked */
+  }
+}
+
 async function main() {
-  let tier: Tier = detectTier();
+  const detected: Tier = detectTier();
+  let qualityMode: QualityMode = savedQuality();
+  let tier: Tier = qualityMode === 'auto' ? detected : qualityMode;
   let quality = qualityFor(tier);
   const stage = new Stage(document.getElementById('stage')!, quality);
   const { renderer, scene, camera } = stage;
@@ -205,11 +226,11 @@ async function main() {
     holder.position.copy(b.origin);
     holder.quaternion.setFromUnitVectors(new THREE.Vector3(1, 0, 0), b.dir);
     scene.add(holder);
-    atmo.addBeam(b, holder, 12, quality.volumetrics, 0.35);
+    atmo.addBeam(b, holder, 12, 0.35);
   });
   const spotBeams: Beam[] = lights.spotPivots.map((p) => {
     const b: Beam = { origin: new THREE.Vector3(), dir: new THREE.Vector3(1, 0, 0), cos: Math.cos(0.075), range: 30, intensity: 0, color: new THREE.Color(1, 0.95, 0.86) };
-    atmo.addBeam(b, p, 22, quality.volumetrics, 0.6);
+    atmo.addBeam(b, p, 22, 0.6);
     return b;
   });
   progress.done('scene');
@@ -284,6 +305,7 @@ async function main() {
     mute: (m) => audio.setMuted(m),
     title: () => lore.show(CAR),
     light: (p) => setLight(p),
+    quality: (m) => setQualityMode(m),
   });
   hud.setToggle('sigils', true);
 
@@ -537,21 +559,48 @@ async function main() {
   };
   resize();
   window.addEventListener('resize', resize);
-  console.info(`[baby] quality tier: ${tier}`);
-  // step quality down only when it's really struggling (under ~30 fps on a
-  // desktop, ~20 on a phone): full quality at 40 fps beats low quality at 60
-  const governor = new FrameGovernor(isTouch() ? 40 : 26, () => {
-    if (tier === 'low') return false;
-    tier = tier === 'high' ? 'medium' : 'low';
-    quality = qualityFor(tier);
+  console.info(`[baby] quality tier: ${tier}${qualityMode === 'auto' ? ' (auto)' : ' (chosen)'}`);
+
+  /** switch everything that depends on the quality level, while running */
+  function applyQuality(t: Tier) {
+    tier = t;
+    quality = qualityFor(t);
     stage.setQuality(quality);
     refl.scale = quality.reflectionScale;
     resize();
     rig.sun.castShadow = quality.shadows;
+    const sh = rig.sun.shadow;
+    if (sh.mapSize.x !== quality.shadowMapSize) {
+      sh.map?.dispose();
+      sh.map = null;
+      sh.mapSize.set(quality.shadowMapSize, quality.shadowMapSize);
+    }
+    atmo.setQuality({ particles: reduced ? quality.particles * 0.4 : quality.particles, volumetrics: quality.volumetrics });
     markShadows();
+    hud.setQuality(qualityMode, tier, detected);
     console.info(`[baby] quality → ${tier}`);
+  }
+  function setQualityMode(m: QualityMode) {
+    qualityMode = m;
+    saveQuality(m);
+    const t = m === 'auto' ? detected : m;
+    if (t !== tier) applyQuality(t);
+    else hud.setQuality(qualityMode, tier, detected);
+    governor.reset();
+  }
+  hud.setQuality(qualityMode, tier, detected);
+
+  // in auto, step quality down only when it's really struggling (under ~30 fps
+  // on a desktop, ~20 on a phone): full quality at 40 fps beats low quality at 60.
+  // A level the viewer picked is left alone.
+  const governor = new FrameGovernor(isTouch() ? 40 : 26, () => {
+    if (qualityMode !== 'auto' || tier === 'low') return false;
+    applyQuality(tier === 'high' ? 'medium' : 'low');
     return true;
   });
+  // frames per second for the quiet readout in the checklist
+  let fpsFrames = 0;
+  let fpsTime = 0;
 
   // ---------------------------------------------------------------- loop
   const timer = new THREE.Timer();
@@ -619,7 +668,14 @@ async function main() {
     ground.update(renderer, scene, camera, reflHide, t, live.background);
     stage.render(t);
     overlay.update(camera, exploder.labels);
-    if (started) governor.tick(dt);
+    if (started && qualityMode === 'auto') governor.tick(dt);
+    fpsFrames++;
+    fpsTime += dt;
+    if (fpsTime >= 0.5) {
+      hud.setFps(Math.round(fpsFrames / fpsTime));
+      fpsFrames = 0;
+      fpsTime = 0;
+    }
   };
   renderer.setAnimationLoop(frame);
 

@@ -1,5 +1,7 @@
 // Device tier detection and adaptive quality.
 export type Tier = 'low' | 'medium' | 'high';
+/** 'auto' follows the detected tier (and the frame governor); a tier is a user override */
+export type QualityMode = 'auto' | Tier;
 
 export interface Quality {
   tier: Tier;
@@ -64,6 +66,12 @@ export class FrameGovernor {
   private cooldown = 9; // let the intro and first shader compiles settle
   private strikes = 0;
   constructor(private targetMs: number, private onDowngrade: () => boolean) {}
+  /** start watching afresh (after the quality level changed) */
+  reset(settle = 5) {
+    this.samples.length = 0;
+    this.strikes = 0;
+    this.cooldown = settle;
+  }
   tick(dt: number) {
     if (this.cooldown > 0) {
       this.cooldown -= dt;

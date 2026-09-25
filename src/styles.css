@@ -404,11 +404,64 @@ button {
   stroke-linecap: round;
   stroke-dasharray: 100;
   stroke-dashoffset: 100;
-  transition: stroke-dashoffset 0.4s ease;
+  /* the round cap would leave a red dot when fully retracted: hide it once it has */
+  stroke-opacity: 0;
+  transition: stroke-dashoffset 0.4s ease, stroke-opacity 0s linear 0.4s;
 }
 .light[aria-checked='true'] { color: var(--ink); }
-.light[aria-checked='true'] .ring { stroke-dashoffset: 0; }
+.light[aria-checked='true'] .ring { stroke-dashoffset: 0; stroke-opacity: 1; transition: stroke-dashoffset 0.4s ease, stroke-opacity 0s; }
 .light:hover span { text-decoration: underline wavy rgba(143, 42, 29, 0.45) 1px; text-underline-offset: 4px; }
+
+/* rendering quality: auto / low / med / high, with a pencilled note and a hover tag */
+.quality {
+  position: relative;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed rgba(42, 33, 24, 0.3);
+}
+.quality-row { display: flex; justify-content: space-between; margin: 0 -4px; }
+.quality-row .light { font-size: 21px; padding: 3px 4px 1px; }
+.quality-note {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 3px 2px 0;
+  font-family: var(--hand);
+  font-size: 18px;
+  line-height: 1.05;
+  color: var(--pencil);
+  white-space: nowrap;
+  min-height: 1.05em;
+}
+.quality-note .fps { opacity: 0.75; font-variant-numeric: tabular-nums; }
+.q-tip {
+  position: absolute;
+  right: calc(100% + 26px);
+  top: -2px;
+  width: min(236px, calc(100vw - 240px));
+  padding: 11px 14px 10px 16px;
+  font-family: var(--type);
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--ink);
+  transform: rotate(-1.2deg) translateX(6px);
+  opacity: 0;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+  pointer-events: none;
+  z-index: 3;
+  --edge: var(--edge-scrap);
+  --stain-at: 60% 30%;
+}
+.q-tip.show { opacity: 1; transform: rotate(-1.2deg) translateX(0); }
+.q-tip b {
+  display: block;
+  font-family: var(--hand);
+  font-weight: 400;
+  font-size: 23px;
+  line-height: 1;
+  color: var(--red);
+  margin-bottom: 3px;
+}
 .check {
   display: flex;
   align-items: center;

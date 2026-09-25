@@ -1,7 +1,7 @@
 import { h, svg, ICONS, checkboxSvg } from './dom';
 import type { ViewName } from '../scene/director';
 import type { PresetName } from '../scene/lighting';
-import { isTouch } from '../scene/quality';
+import { isTouch, type QualityMode, type Tier } from '../scene/quality';
 
 export interface HudHandlers {
   view: (v: ViewName) => void;
@@ -12,7 +12,22 @@ export interface HudHandlers {
   mute: (m: boolean) => void;
   title: () => void;
   light: (p: PresetName) => void;
+  quality: (m: QualityMode) => void;
 }
+
+const QUALITY: { mode: QualityMode; label: string; name: string }[] = [
+  { mode: 'auto', label: 'auto', name: 'Auto' },
+  { mode: 'low', label: 'low', name: 'Low' },
+  { mode: 'medium', label: 'med', name: 'Medium' },
+  { mode: 'high', label: 'high', name: 'High' },
+];
+
+/** what each level does, for the hover tag */
+const QUALITY_TIPS: Record<Tier, string> = {
+  low: '0.75× resolution, no anti-aliasing. No shadows, glow or light beams, and a third of the dust and rain. For older laptops and phones.',
+  medium: '1.25× resolution with 2× anti-aliasing. Softer 1024 px shadows, lighter puddle reflections, 60% of the dust and rain.',
+  high: '1.25× resolution with 4× anti-aliasing. Crisp 2048 px shadows, sharper puddle reflections, all the dust and rain.',
+};
 
 export type ToggleKey = 'engine' | 'spotlights' | 'rain' | 'motel' | 'sigils';
 
@@ -41,6 +56,15 @@ export class Hud {
   private slider: HTMLInputElement;
   private checklist: HTMLElement;
   private lightBtns = new Map<PresetName, HTMLButtonElement>();
+  private qualityBtns = new Map<QualityMode, HTMLButtonElement>();
+  private qualityNote: HTMLElement;
+  private qualityLabel: HTMLElement;
+  private fpsLabel: HTMLElement;
+  private qualityTip: HTMLElement;
+  private qualityText = '';
+  private fps = 0;
+  private detected: Tier = 'high';
+  private tipTimer = 0;
   readonly trunkNote: HTMLElement;
   private hintDone = false;
 
@@ -95,8 +119,35 @@ export class Hud {
       this.setMuted(m);
       on.mute(m);
     });
+    // quality: auto (the detected tier) or an override; a paper tag explains each level
+    const qRow = h('div', { class: 'quality-row', role: 'radiogroup', 'aria-label': 'Rendering quality' });
+    this.qualityTip = h('div', { class: 'q-tip sheet', role: 'tooltip', id: 'q-tip' });
+    QUALITY.forEach((q, i) => {
+      const b = h('button', { class: 'light q', type: 'button', role: 'radio', 'aria-checked': 'false', 'aria-describedby': 'q-tip' });
+      b.innerHTML = `<svg viewBox="0 0 30 30" preserveAspectRatio="none" aria-hidden="true"><path class="ring" pathLength="100" d="M${25 - i * 0.6} ${9 + i * 0.4} C ${21 + i} 2.5, ${5 - i * 0.4} ${3 + i * 0.3}, 2.5 ${14 + i * 0.4} C ${1 + i * 0.4} 25, ${24 - i} ${28 - i * 0.3}, 27.5 ${16 - i * 0.3} C 28.5 11, 24 6, ${17 + i} 4.5"/></svg>`;
+      b.append(h('span', {}, q.label));
+      b.addEventListener('pointerenter', () => this.showQualityTip(q.mode));
+      b.addEventListener('focus', () => this.showQualityTip(q.mode));
+      b.addEventListener('pointerleave', () => this.hideQualityTip());
+      b.addEventListener('blur', () => this.hideQualityTip());
+      b.addEventListener('click', () => {
+        on.quality(q.mode);
+        // no hover on touch screens: show what was picked for a moment
+        if (isTouch()) {
+          this.showQualityTip(q.mode);
+          clearTimeout(this.tipTimer);
+          this.tipTimer = window.setTimeout(() => this.hideQualityTip(), 3200);
+        }
+      });
+      this.qualityBtns.set(q.mode, b);
+      qRow.append(b);
+    });
+    this.qualityLabel = h('span', {});
+    this.fpsLabel = h('span', { class: 'fps', title: 'Frames per second' });
+    this.qualityNote = h('p', { class: 'quality-note', 'aria-live': 'off' }, this.qualityLabel, this.fpsLabel);
     this.checklist.append(
       h('div', { class: 'volume' }, this.muteBtn, this.slider),
+      h('div', { class: 'quality' }, qRow, this.qualityNote, this.qualityTip),
       h('div', { class: 'stamps' },
         h('button', { class: 'stamp', type: 'button', onclick: () => on.flipPlates() }, 'Swap plates'),
         h('button', { class: 'stamp', type: 'button', onclick: () => on.reset() }, 'Reset view'),
@@ -143,6 +194,37 @@ export class Hud {
 
   setLight(p: PresetName) {
     this.lightBtns.forEach((b, k) => b.setAttribute('aria-checked', String(k === p)));
+  }
+
+  /** mark the chosen mode and say what auto picked (and whether it had to step down) */
+  setQuality(mode: QualityMode, active: Tier, detected: Tier) {
+    this.detected = detected;
+    this.qualityBtns.forEach((b, k) => b.setAttribute('aria-checked', String(k === mode)));
+    const short = (t: Tier) => (t === 'medium' ? 'med' : t);
+    this.qualityText = mode === 'auto'
+      ? active === detected ? `picked ${short(active)}` : `dropped to ${short(active)}`
+      : `auto: ${short(detected)}`;
+    this.qualityLabel.textContent = this.qualityText;
+  }
+
+  /** frames per second, shown quietly next to the quality level */
+  setFps(fps: number) {
+    if (fps === this.fps) return;
+    this.fps = fps;
+    this.fpsLabel.textContent = `${fps} fps`;
+  }
+
+  private showQualityTip(mode: QualityMode) {
+    const q = QUALITY.find((x) => x.mode === mode)!;
+    const body = mode === 'auto'
+      ? `Picks a level for this device (here: ${this.detected}) and steps down on its own if it can’t hold about 30 fps.`
+      : QUALITY_TIPS[mode];
+    this.qualityTip.replaceChildren(h('b', {}, q.name), h('span', {}, body));
+    this.qualityTip.classList.add('show');
+  }
+
+  private hideQualityTip() {
+    this.qualityTip.classList.remove('show');
   }
 
   setToggle(key: ToggleKey, on: boolean) {

@@ -125,6 +125,10 @@ export class Atmosphere {
   private rainTarget = 0;
   private dust: THREE.Points;
   private steps: number;
+  private dustCount: number;
+  private dropCount: number;
+  /** light shafts are drawn only when the quality level allows them */
+  private volumetrics = true;
 
   constructor(quality: { particles: number; volumetrics: boolean; tier?: string }) {
     this.group.name = 'atmosphere';
@@ -172,7 +176,8 @@ export class Atmosphere {
     }
 
     // ---------------------------------------------------------------- dust in the beams
-    const count = Math.round(2600 * quality.particles);
+    // built at full density; the quality level only changes how many are drawn
+    const count = (this.dustCount = 2600);
     const pos = new Float32Array(count * 3);
     const seed = new Float32Array(count);
     for (let i = 0; i < count; i++) {
@@ -224,7 +229,7 @@ export class Atmosphere {
     this.group.add(this.dust);
 
     // ---------------------------------------------------------------- rain
-    const drops = Math.round(3200 * quality.particles);
+    const drops = (this.dropCount = 3200);
     const rp = new Float32Array(drops * 2 * 3);
     const rs = new Float32Array(drops * 2);
     const rend = new Float32Array(drops * 2);
@@ -276,15 +281,23 @@ export class Atmosphere {
     this.rain.visible = false;
     this.rain.raycast = () => undefined;
     this.group.add(this.rain);
+    this.setQuality(quality);
+  }
+
+  /** Switch light shafts and particle density for a quality level, at any time. */
+  setQuality(q: { particles: number; volumetrics: boolean }) {
+    this.volumetrics = q.volumetrics;
+    this.dust.geometry.setDrawRange(0, Math.round(this.dustCount * q.particles));
+    // rain streaks are line segments: two vertices each
+    this.rain.geometry.setDrawRange(0, 2 * Math.round(this.dropCount * q.particles));
   }
 
   /**
    * Add a light shaft for a beam. `parent` carries the beam's orientation
    * (+X forward); without one the shaft follows beam.origin/dir each frame.
    */
-  addBeam(beam: Beam, parent: THREE.Object3D | null, length: number, enabled: boolean, g = 0.45) {
+  addBeam(beam: Beam, parent: THREE.Object3D | null, length: number, g = 0.45) {
     this.beams.push(beam);
-    if (!enabled) return;
     const half = Math.acos(beam.cos);
     const radius = Math.tan(half) * length * 1.08;
     const geo = new THREE.CylinderGeometry(0.02, radius, length, 48, 1, true);
@@ -344,7 +357,7 @@ export class Atmosphere {
       U.uBeamC.value[i].copy(b.color);
     }
     for (const s of this.shafts) {
-      const on = s.beam.intensity > 0.01 && haze > 0.02;
+      const on = this.volumetrics && s.beam.intensity > 0.01 && haze > 0.02;
       s.mesh.visible = on;
       if (!on) continue;
       // the beam's world origin/dir are authoritative (the parent only positions the proxy mesh)
