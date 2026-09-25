@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { NOISE } from './glsl';
 
 /**
  * Materials for everything in the GLB. The base model's textured materials
@@ -10,12 +11,12 @@ export class Materials {
   readonly m = new Map<string, THREE.Material>();
   /** named emissive controls: intensity setters for lamps, dash, etc. */
   readonly lamps = new Map<string, THREE.MeshStandardMaterial[]>();
-  env: THREE.Texture | null;
+  /** reflections come from scene.environment (set per lighting preset) */
+  readonly env: THREE.Texture | null = null;
 
-  constructor(env: THREE.Texture | null) {
-    this.env = env;
-    const std = (p: THREE.MeshStandardMaterialParameters) => new THREE.MeshStandardMaterial({ envMap: env, ...p });
-    const phy = (p: THREE.MeshPhysicalMaterialParameters) => new THREE.MeshPhysicalMaterial({ envMap: env, ...p });
+  constructor() {
+    const std = (p: THREE.MeshStandardMaterialParameters) => new THREE.MeshStandardMaterial(p);
+    const phy = (p: THREE.MeshPhysicalMaterialParameters) => new THREE.MeshPhysicalMaterial(p);
     const add = (k: string, mat: THREE.Material) => this.m.set(k, mat);
 
     add('chrome', std({ color: 0xf2f0ec, metalness: 1.0, roughness: 0.1, envMapIntensity: 1.3 }));
@@ -99,45 +100,30 @@ export class Materials {
     if (own && 'emissiveIntensity' in own && !this.lamps.has(key)) own.emissiveIntensity = v;
   }
 
-  setEnv(env: THREE.Texture) {
-    this.env = env;
-    const seen = new Set<THREE.Material>();
-    const apply = (mat: THREE.Material) => {
-      if (seen.has(mat)) return;
-      seen.add(mat);
-      const s = mat as THREE.MeshStandardMaterial;
-      if ('envMap' in s) {
-        s.envMap = env;
-        s.needsUpdate = true;
-      }
-    };
-    this.m.forEach(apply);
-    this.extra.forEach(apply);
-  }
-
   /** materials created while upgrading the GLB (so env swaps reach them too) */
   readonly extra: THREE.Material[] = [];
 
   /** Upgrade the base model's textured material to our look. */
   upgrade(src: THREE.MeshStandardMaterial, meshName: string): THREE.Material {
-    const env = this.env;
     const name = src.name;
     const keep = (m: THREE.MeshStandardMaterial) => {
-      m.envMap = env;
       this.extra.push(m);
       return m;
     };
     if (name.startsWith('UpCar')) {
       const cached = this.m.get('__paint');
       if (cached) return cached;
+      // the source colour and roughness maps carry baked road grime around the
+      // arches; Baby is kept spotless, so only the normals and AO survive
       const p = new THREE.MeshPhysicalMaterial({
-        map: src.map, normalMap: src.normalMap, normalScale: new THREE.Vector2(1, 1).multiply(src.normalScale),
-        roughnessMap: src.roughnessMap, metalnessMap: src.metalnessMap, aoMap: src.aoMap, aoMapIntensity: 1,
-        color: new THREE.Color(0x9a9aa0), roughness: 0.85, metalness: 0.0,
-        clearcoat: 1.0, clearcoatRoughness: 0.075, envMap: env, envMapIntensity: 1.1, specularIntensity: 0.5,
+        normalMap: src.normalMap, normalScale: new THREE.Vector2(1, 1).multiply(src.normalScale),
+        aoMap: src.aoMap, aoMapIntensity: 1,
+        color: new THREE.Color(0x0e0e11), roughness: 0.85, metalness: 0.0,
+        clearcoat: 1.0, clearcoatRoughness: 0.07, envMapIntensity: 1.0, specularIntensity: 0.5,
         side: THREE.DoubleSide,
       });
       p.name = 'paint_textured';
+      addRoadDust(p);
       this.m.set('__paint', p);
       this.extra.push(p);
       return p;
@@ -146,7 +132,7 @@ export class Materials {
       const isLamp = meshName.startsWith('GlassLapm');
       const g = new THREE.MeshPhysicalMaterial({
         map: src.map, color: isLamp ? 0xe8e6de : 0x8c9296, roughness: 0.03, metalness: 0.0,
-        transparent: true, opacity: isLamp ? 0.55 : 0.28, envMap: env, envMapIntensity: 1.5,
+        transparent: true, opacity: isLamp ? 0.55 : 0.28, envMapIntensity: 1.4,
         side: THREE.DoubleSide, depthWrite: false, specularIntensity: 1.0,
         emissive: isLamp ? 0xfff0d0 : 0x000000, emissiveIntensity: 0,
       });
@@ -163,6 +149,7 @@ export class Materials {
         const c = this.m.get('__frontchromes');
         if (c) return c;
         src.envMapIntensity = 1.2;
+        minRoughness(src, 0.12);
         this.m.set('__frontchromes', keep(src));
         return src;
       }
@@ -181,11 +168,15 @@ export class Materials {
     }
     if (name.startsWith('Chrome')) {
       src.envMapIntensity = 1.35;
+      minRoughness(src, 0.14);
       return keep(src);
     }
     if (name.startsWith('Indoor')) {
       if (meshName.startsWith('BviewMirror') || meshName.startsWith('MirrorHandle')) {
-        const c = this.m.get('__mirror_in') ?? keep(Object.assign(src.clone(), { envMapIntensity: 0.18 }));
+        // mirror glass as dark dielectric: a metal mirror turns every lamp into a flare
+        const c = this.m.get('__mirror_in') ?? keep(Object.assign(src.clone(), {
+          envMapIntensity: 0.5, metalness: 0, metalnessMap: null, roughness: 0.04, roughnessMap: null, map: null, color: new THREE.Color(0x0c0c0d),
+        }));
         this.m.set('__mirror_in', c);
         return c;
       }
@@ -193,11 +184,72 @@ export class Materials {
       return keep(src);
     }
     if (name.startsWith('wheel')) {
+      // tyres: the atlas marks the rubber metallic, which reads as chrome
+      src.metalness = 0;
+      src.metalnessMap = null;
+      src.roughness = 0.92;
+      src.roughnessMap = null;
+      src.color.set(0x8a8a8a);
       src.envMapIntensity = 0.5;
       return keep(src);
     }
     return keep(src);
   }
+}
+
+/**
+ * Faint road dust low on the body: a little greyer and a touch less glossy
+ * below the rocker line, broken up by noise. Lived-in, not museum-new, and kept
+ * subtle so the clear coat still reads.
+ */
+function addRoadDust(m: THREE.MeshPhysicalMaterial) {
+  m.onBeforeCompile = (sh) => {
+    sh.vertexShader = sh.vertexShader
+      .replace('#include <common>', `#include <common>
+        varying vec3 vDustW;`)
+      .replace('#include <begin_vertex>', `#include <begin_vertex>
+        vDustW = (modelMatrix * vec4(transformed, 1.0)).xyz;`);
+    sh.fragmentShader = sh.fragmentShader
+      .replace('#include <common>', `#include <common>
+        varying vec3 vDustW;
+        ${NOISE}
+        float roadDust() {
+          float n = vnoise(vDustW.xz * 7.0 + vDustW.y * 5.0) * 0.6 + vnoise(vDustW.xz * 23.0) * 0.4;
+          // heavier behind the wheels, where the tyres throw it up
+          float arch = smoothstep(0.75, 0.0, min(abs(vDustW.x - 1.77), abs(vDustW.x + 1.25)));
+          float low = 1.0 - smoothstep(0.16, 0.5 + 0.12 * arch, vDustW.y);
+          return low * mix(0.45, 1.0, n);
+        }`)
+      .replace('#include <color_fragment>', `#include <color_fragment>
+        float dust = roadDust();
+        diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.16, 0.145, 0.13), dust * 0.32);`)
+      .replace('#include <lights_physical_fragment>', `#include <lights_physical_fragment>
+        #ifdef USE_CLEARCOAT
+          material.clearcoatRoughness = clamp(material.clearcoatRoughness + dust * 0.22, 0.0, 1.0);
+          material.clearcoat *= 1.0 - dust * 0.25;
+        #endif`)
+      // the inside of the body shell (wheel wells, behind the dash) is trimmed
+      // over in a real car; keep it dark instead of catching every light
+      .replace('#include <opaque_fragment>', `if (!gl_FrontFacing) outgoingLight *= 0.12;
+        #include <opaque_fragment>`);
+  };
+  m.customProgramCacheKey = () => 'paint-road-dust';
+}
+
+/**
+ * Chrome from the source atlas has near-zero roughness in places, which turns
+ * every facet of the trim into a pinpoint glint; a floor spreads them into
+ * smooth highlights.
+ */
+function minRoughness(m: THREE.MeshStandardMaterial, floor: number) {
+  const prev = m.onBeforeCompile;
+  m.onBeforeCompile = (sh, r) => {
+    prev.call(m, sh, r);
+    sh.fragmentShader = sh.fragmentShader.replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
+      roughnessFactor = max(roughnessFactor, ${floor.toFixed(3)});`);
+  };
+  const key = m.customProgramCacheKey.bind(m);
+  m.customProgramCacheKey = () => `${key()}|minr${floor}`;
 }
 
 function lampGroup(mesh: string): string | null {

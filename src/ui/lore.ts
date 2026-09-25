@@ -12,8 +12,8 @@ export class LorePanel {
   constructor(host: HTMLElement) {
     const close = h('button', { class: 'close', type: 'button', 'aria-label': 'Close page', onclick: () => this.close() });
     close.append(svg(ICONS.close));
-    this.body = h('div', {});
-    this.el = h('aside', { class: 'lore paper stain', role: 'dialog', 'aria-modal': 'false', 'aria-label': 'Journal page', tabindex: -1 },
+    this.body = h('div', { class: 'content' });
+    this.el = h('aside', { class: 'lore sheet', role: 'dialog', 'aria-modal': 'false', 'aria-label': 'Journal page', tabindex: -1 },
       h('span', { class: 'tape a' }), h('span', { class: 'tape b' }), close, this.body);
     host.append(this.el);
     window.addEventListener('keydown', (e) => {
@@ -51,7 +51,7 @@ export class LorePanel {
     }
     if (l.refs) parts.push(h('p', { class: 'refs' }, l.refs));
     this.body.replaceChildren(...parts);
-    this.el.scrollTop = 0;
+    this.body.scrollTop = 0;
     this.el.classList.add('open');
     this.isOpen = true;
     this.el.focus({ preventScroll: true });

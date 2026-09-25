@@ -2,7 +2,7 @@
 
 type Pt = [number, number];
 
-function rng(seed: number) {
+export function rng(seed: number) {
   let s = seed >>> 0;
   return () => {
     s = (s * 1664525 + 1013904223) >>> 0;
@@ -11,7 +11,7 @@ function rng(seed: number) {
 }
 
 /** A rough brush stroke along a polyline: several jittered passes, uneven width. */
-function brush(ctx: CanvasRenderingContext2D, pts: Pt[], width: number, rand: () => number, color: string) {
+export function brush(ctx: CanvasRenderingContext2D, pts: Pt[], width: number, rand: () => number, color: string) {
   const passes = 4;
   for (let p = 0; p < passes; p++) {
     ctx.beginPath();
@@ -43,7 +43,7 @@ function brush(ctx: CanvasRenderingContext2D, pts: Pt[], width: number, rand: ()
   ctx.globalAlpha = 1;
 }
 
-function curve(points: Pt[], steps = 12): Pt[] {
+export function curve(points: Pt[], steps = 12): Pt[] {
   // Catmull-Rom through points
   const out: Pt[] = [];
   const P = [points[0], ...points, points[points.length - 1]];
@@ -59,7 +59,7 @@ function curve(points: Pt[], steps = 12): Pt[] {
   return out;
 }
 
-function circlePts(cx: number, cy: number, r: number, wobble: number, rand: () => number, n = 90): Pt[] {
+export function circlePts(cx: number, cy: number, r: number, wobble: number, rand: () => number, n = 90): Pt[] {
   const pts: Pt[] = [];
   const ph = rand() * 6;
   for (let i = 0; i <= n; i++) {
@@ -80,8 +80,8 @@ const SIGILS: Pt[][][] = [
   [[[-0.4, -0.5], [0.4, 0.5]], [[0.4, -0.5], [-0.4, 0.5]], [[-0.55, -0.15], [-0.1, -0.15]], [[0.1, 0.2], [0.55, 0.2]]],
   // bottom: curl + box
   [[[-0.6, 0.1], [-0.4, -0.3], [-0.15, 0.05], [-0.35, 0.3], [-0.55, 0.2]], [[0.0, -0.2], [0.55, -0.2], [0.55, 0.3], [0.0, 0.3], [0.0, -0.2]]],
-  // left: cross with hooks
-  [[[0.0, -0.55], [0.0, 0.55]], [[-0.45, 0.0], [0.45, 0.0]], [[-0.45, 0.0], [-0.45, 0.25]], [[0.45, 0.0], [0.45, -0.25]], [[0.0, 0.55], [0.25, 0.45]]],
+  // left: forked stem (a trident-like glyph)
+  [[[-0.42, -0.5], [-0.36, -0.08], [0.0, 0.04], [0.36, -0.08], [0.42, -0.5]], [[0.0, -0.45], [0.0, 0.6]], [[-0.22, 0.42], [0.22, 0.42]]],
 ];
 
 export function drawDevilsTrap(width = 2048, height = 1408): HTMLCanvasElement {

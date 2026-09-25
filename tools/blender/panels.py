@@ -63,7 +63,7 @@ PIVOTS = {
     'door_fl': (X_DOOR_F, 1.0, 0.7), 'door_fr': (X_DOOR_F, -1.0, 0.7),
     'door_rl': (X_BLINE, 1.0, 0.7), 'door_rr': (X_BLINE, -1.0, 0.7),
     'hood': (X_HOOD_R + 0.02, 0.0, 0.98),
-    'trunk_lid': (X_TRUNK_F - 0.02, 0.0, 1.03),
+    'trunk_lid': (X_TRUNK_F - 0.025, 0.0, 1.10),  # top-front edge: swings clear of the body and glass
 }
 
 

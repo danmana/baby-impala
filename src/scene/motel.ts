@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 
 /** Stroke-drawn capitals for neon tubing (unit box: x 0..0.6, y 0..1). */
 const GLYPHS: Record<string, [number, number][][]> = {
@@ -8,13 +9,9 @@ const GLYPHS: Record<string, [number, number][][]> = {
   N: [[[0, 0], [0, 1], [0.6, 0], [0.6, 1]]],
   Y: [[[0, 1], [0.3, 0.5], [0.6, 1]], [[0.3, 0.5], [0.3, 0]]],
   O: [[[0.15, 0], [0.45, 0], [0.6, 0.2], [0.6, 0.8], [0.45, 1], [0.15, 1], [0, 0.8], [0, 0.2], [0.15, 0]]],
-  M: [[[0, 0], [0, 1], [0.3, 0.45], [0.6, 1], [0.6, 0]]],
-  T: [[[0, 1], [0.6, 1]], [[0.3, 1], [0.3, 0]]],
-  E: [[[0.6, 1], [0, 1], [0, 0], [0.6, 0]], [[0, 0.5], [0.45, 0.5]]],
-  L: [[[0, 1], [0, 0], [0.6, 0]]],
 };
 
-function neonWord(word: string, size: number, spacing: number, mat: THREE.Material, radius = 0.02) {
+function neonWord(word: string, size: number, spacing: number, mat: THREE.Material, radius: number) {
   const g = new THREE.Group();
   let x = 0;
   for (const ch of word) {
@@ -23,8 +20,7 @@ function neonWord(word: string, size: number, spacing: number, mat: THREE.Materi
       for (const s of strokes) {
         const pts = s.map(([u, v]) => new THREE.Vector3(x + u * size, v * size, 0));
         const curve = new THREE.CatmullRomCurve3(pts, false, 'catmullrom', 0.05);
-        const geo = new THREE.TubeGeometry(curve, Math.max(8, pts.length * 10), radius, 6, false);
-        const m = new THREE.Mesh(geo, mat);
+        const m = new THREE.Mesh(new THREE.TubeGeometry(curve, Math.max(10, pts.length * 12), radius, 8, false), mat);
         m.userData.letter = ch;
         g.add(m);
       }
@@ -35,41 +31,75 @@ function neonWord(word: string, size: number, spacing: number, mat: THREE.Materi
   return g;
 }
 
-function canvasTex(w: number, h: number, draw: (c: CanvasRenderingContext2D) => void, repeat?: [number, number]) {
+function canvasTex(w: number, h: number, draw: (c: CanvasRenderingContext2D) => void) {
   const c = document.createElement('canvas');
   c.width = w;
   c.height = h;
   draw(c.getContext('2d')!);
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
-  if (repeat) {
-    t.wrapS = t.wrapT = THREE.RepeatWrapping;
-    t.repeat.set(...repeat);
-  }
   t.anisotropy = 4;
   return t;
 }
 
-function rnd(seed: number) {
-  let s = seed;
-  return () => ((s = (s * 16807) % 2147483647) / 2147483647);
+export interface MotelMaps {
+  wall: { diff: THREE.Texture; nor: THREE.Texture; arm: THREE.Texture };
+  walk: { diff: THREE.Texture; nor: THREE.Texture; arm: THREE.Texture };
+  door: { diff: THREE.Texture; nor: THREE.Texture; arm: THREE.Texture };
+  metal: { diff: THREE.Texture; nor: THREE.Texture; arm: THREE.Texture };
+  roof: { diff: THREE.Texture; nor: THREE.Texture; arm: THREE.Texture };
+}
+
+type PBR = MotelMaps['wall'];
+
+/** A textured material with its own repeat (textures are cloned so repeats don't clash). */
+function pbr(set: PBR, repeat: [number, number], color: THREE.ColorRepresentation, extra: THREE.MeshStandardMaterialParameters = {}) {
+  const clone = (t: THREE.Texture, srgb: boolean) => {
+    const c = t.clone();
+    c.wrapS = c.wrapT = THREE.RepeatWrapping;
+    c.repeat.set(...repeat);
+    c.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace;
+    c.anisotropy = 8;
+    c.needsUpdate = true;
+    return c;
+  };
+  const arm = clone(set.arm, false);
+  return new THREE.MeshStandardMaterial({
+    map: clone(set.diff, true), normalMap: clone(set.nor, false), roughnessMap: arm, aoMap: arm,
+    color, roughness: 1, metalness: 0, ...extra,
+  });
+}
+
+/** Box with UVs scaled to its real size, so tiling textures keep a constant texel density. */
+function worldBox(w: number, h: number, d: number, tile: number) {
+  const g = new THREE.BoxGeometry(w, h, d);
+  const uv = g.getAttribute('uv') as THREE.BufferAttribute;
+  const n = g.getAttribute('normal') as THREE.BufferAttribute;
+  for (let i = 0; i < uv.count; i++) {
+    const ax = Math.abs(n.getX(i)), ay = Math.abs(n.getY(i));
+    const sx = ax > 0.5 ? d : w;
+    const sy = ay > 0.5 ? d : h;
+    uv.setXY(i, (uv.getX(i) * sx) / tile, (uv.getY(i) * sy) / tile);
+  }
+  return g;
 }
 
 /**
- * Run-down roadside motel close behind the car, with a buzzing, flickering
- * red VACANCY sign. The sign's light reaches the car through a RectAreaLight
- * (shaped reflections in the paint and chrome) and a point light.
+ * A run-down roadside motel close behind the car, with a buzzing, flickering
+ * red VACANCY sign. Its light reaches the car through a rectangular area light
+ * (shaped highlights in the paint and chrome) and a soft red fill.
  */
 export class Motel {
   readonly group = new THREE.Group();
-  readonly neonLight: THREE.RectAreaLight;
+  /** lights live outside the toggled group so turning the motel on never changes the light count */
+  readonly lights = new THREE.Group();
   readonly neonFill: THREE.PointLight;
-  readonly windowLight: THREE.PointLight;
   private neonMat: THREE.MeshStandardMaterial;
   private neonFlickerMat: THREE.MeshStandardMaterial;
   private noMat: THREE.MeshStandardMaterial;
   private tvMat: THREE.MeshStandardMaterial;
   private windowMats: THREE.MeshStandardMaterial[] = [];
+  private lampMats: THREE.MeshStandardMaterial[] = [];
   private on = false;
   private fade = 0;
   private flickerT = 0;
@@ -79,227 +109,249 @@ export class Motel {
   /** the car-facing plane of the wall (camera must stay in front of it) */
   readonly wallZ = 4.35;
 
-  constructor(env: THREE.Texture | null) {
+  constructor(maps: MotelMaps) {
     const g = this.group;
     g.name = 'motel';
     const Z = this.wallZ;
-    const r = rnd(42);
+    const W = 22, X0 = -1;
 
-    // painted cinder block with grime
-    const wallTex = canvasTex(1024, 512, (c) => {
-      c.fillStyle = '#6f7a6e';
-      c.fillRect(0, 0, 1024, 512);
-      for (let y = 0; y < 512; y += 32) {
-        for (let x = (y / 32) % 2 ? -32 : 0; x < 1024; x += 64) {
-          const v = 100 + r() * 30;
-          c.fillStyle = `rgba(${v},${v + 12},${v},0.25)`;
-          c.fillRect(x + 1, y + 1, 62, 30);
-        }
-        c.fillStyle = 'rgba(40,40,36,0.35)';
-        c.fillRect(0, y, 1024, 2);
-      }
-      for (let i = 0; i < 60; i++) {
-        c.fillStyle = `rgba(30,26,20,${0.05 + r() * 0.12})`;
-        const x = r() * 1024;
-        c.fillRect(x, 0, 2 + r() * 12, 512 * (0.3 + r() * 0.7));
-      }
-      const gr = c.createLinearGradient(0, 380, 0, 512);
-      gr.addColorStop(0, 'rgba(20,18,14,0)');
-      gr.addColorStop(1, 'rgba(20,18,14,0.6)');
-      c.fillStyle = gr;
-      c.fillRect(0, 0, 1024, 512);
-    }, [3, 1]);
-    const wallMat = new THREE.MeshStandardMaterial({ map: wallTex, roughness: 0.95, envMap: env, envMapIntensity: 0.3 });
-    const wall = new THREE.Mesh(new THREE.BoxGeometry(20, 3.3, 0.3), wallMat);
-    wall.position.set(-1, 1.65, Z + 0.15);
+    // ---------------------------------------------------------------- walls, plinth, walkway
+    const wallMat = pbr(maps.wall, [1, 1], 0xd9d1b8, { envMapIntensity: 0.35 });
+    const wall = new THREE.Mesh(worldBox(W, 3.3, 0.3, 1.25), wallMat);
+    wall.position.set(X0, 1.65 + 0.16, Z + 0.15);
     wall.receiveShadow = true;
     g.add(wall);
-
-    // walkway
-    const walk = new THREE.Mesh(new THREE.BoxGeometry(20, 0.16, 1.9),
-      new THREE.MeshStandardMaterial({ color: 0x3a3a38, roughness: 0.9, envMap: env, envMapIntensity: 0.2 }));
-    walk.position.set(-1, 0.08, Z - 0.95);
+    const plinthMat = pbr(maps.walk, [1, 1], 0x8f8a82);
+    const plinth = new THREE.Mesh(worldBox(W, 0.32, 0.34, 1.4), plinthMat);
+    plinth.position.set(X0, 0.16 + 0.16, Z + 0.13);
+    g.add(plinth);
+    const walkMat = pbr(maps.walk, [1, 1], 0xa9a49b, { envMapIntensity: 0.3 });
+    const walk = new THREE.Mesh(worldBox(W, 0.16, 1.9, 1.5), walkMat);
+    walk.position.set(X0, 0.08, Z - 0.95);
     walk.receiveShadow = true;
+    walk.castShadow = true;
     g.add(walk);
+    const curb = new THREE.Mesh(worldBox(W, 0.17, 0.12, 1.5), plinthMat);
+    curb.position.set(X0, 0.085, Z - 1.9);
+    g.add(curb);
 
-    // canopy + fascia + posts
-    const fasciaTex = canvasTex(1024, 64, (c) => {
-      c.fillStyle = '#7b2f22';
-      c.fillRect(0, 0, 1024, 64);
-      for (let i = 0; i < 140; i++) {
-        c.fillStyle = `rgba(220,200,170,${r() * 0.15})`;
-        c.fillRect(r() * 1024, r() * 64, 4 + r() * 30, 1 + r() * 4);
-      }
-    }, [4, 1]);
-    const canopy = new THREE.Mesh(new THREE.BoxGeometry(20, 0.12, 2.1),
-      new THREE.MeshStandardMaterial({ color: 0x1e1d1b, roughness: 0.9, envMap: env, envMapIntensity: 0.2 }));
-    canopy.position.set(-1, 2.72, Z - 1.0);
+    // ---------------------------------------------------------------- canopy, fascia, posts
+    const roofMat = pbr(maps.roof, [1, 1], 0x6e6258, { metalness: 0.6 });
+    const canopy = new THREE.Mesh(worldBox(W, 0.1, 2.15, 1.2), roofMat);
+    canopy.position.set(X0, 2.82, Z - 1.0);
+    canopy.castShadow = true;
     g.add(canopy);
-    const fascia = new THREE.Mesh(new THREE.BoxGeometry(20, 0.34, 0.06),
-      new THREE.MeshStandardMaterial({ map: fasciaTex, roughness: 0.8, envMap: env, envMapIntensity: 0.4 }));
-    fascia.position.set(-1, 2.64, Z - 2.05);
+    const soffit = new THREE.Mesh(new THREE.PlaneGeometry(W, 2.1),
+      new THREE.MeshStandardMaterial({ color: 0x2a2724, roughness: 0.95 }));
+    soffit.rotation.x = Math.PI / 2;
+    soffit.position.set(X0, 2.765, Z - 1.0);
+    g.add(soffit);
+    const fasciaMat = pbr(maps.metal, [1, 1], 0x9a4a32, { metalness: 0.35 });
+    const fascia = new THREE.Mesh(worldBox(W, 0.38, 0.06, 1.1), fasciaMat);
+    fascia.position.set(X0, 2.72, Z - 2.08);
     g.add(fascia);
-    const postMat = new THREE.MeshStandardMaterial({ color: 0x2b2b2a, roughness: 0.5, metalness: 0.8, envMap: env });
-    for (let x = -10; x <= 8; x += 3.2) {
-      const p = new THREE.Mesh(new THREE.BoxGeometry(0.08, 2.6, 0.08), postMat);
-      p.position.set(x, 1.3, Z - 1.95);
+    const postMat = pbr(maps.metal, [0.3, 1.5], 0x5b574f, { metalness: 0.7 });
+    for (let x = -10.4; x <= 8.6; x += 3.2) {
+      const p = new THREE.Mesh(worldBox(0.09, 2.6, 0.09, 1), postMat);
+      p.position.set(x, 1.46, Z - 1.98);
+      p.castShadow = true;
       g.add(p);
     }
 
-    // rooms: door + window, some lit
-    const doorColors = ['#7a2a24', '#2f5a5c', '#7a2a24', '#6b5a2a', '#2f5a5c', '#7a2a24'];
+    // ---------------------------------------------------------------- rooms
+    const doorTints = [0x3f6a68, 0x7a2e28, 0x3f6a68, 0x8a6a2a, 0x3f6a68, 0x7a2e28];
     const lit = [true, false, true, true, false, true];
-    let room = 12;
+    const trimMat = new THREE.MeshStandardMaterial({ color: 0xcfc6b0, roughness: 0.7 });
+    const glassMat = new THREE.MeshPhysicalMaterial({ color: 0x0a0c0d, roughness: 0.05, metalness: 0, envMapIntensity: 1.2,
+      transparent: true, opacity: 0.35 });
+    const acMat = pbr(maps.metal, [0.6, 0.4], 0x9b9890, { metalness: 0.55 });
     for (let i = 0; i < 6; i++) {
       const x = -8.6 + i * 3.2;
-      const num = room++;
-      const doorTex = canvasTex(256, 512, (c) => {
-        c.fillStyle = doorColors[i];
-        c.fillRect(0, 0, 256, 512);
-        c.strokeStyle = 'rgba(0,0,0,0.35)';
-        c.lineWidth = 6;
-        c.strokeRect(28, 40, 200, 180);
-        c.strokeRect(28, 260, 200, 210);
-        for (let k = 0; k < 200; k++) {
-          c.fillStyle = `rgba(230,220,200,${r() * 0.12})`;
-          c.fillRect(r() * 256, r() * 512, 2 + r() * 10, 1 + r() * 3);
-        }
-        c.fillStyle = '#c8a24a';
-        c.font = 'bold 54px Georgia, serif';
-        c.textAlign = 'center';
-        c.fillText(String(num), 128, 120);
-        c.beginPath();
-        c.arc(210, 300, 12, 0, Math.PI * 2);
-        c.fill();
-      });
-      const door = new THREE.Mesh(new THREE.PlaneGeometry(0.95, 2.1),
-        new THREE.MeshStandardMaterial({ map: doorTex, roughness: 0.7, envMap: env, envMapIntensity: 0.4 }));
-      door.position.set(x, 1.05 + 0.16, Z - 0.005);
-      door.rotation.y = Math.PI;
+      const num = 12 + i;
+      // door with frame and a brass number
+      const doorMat = pbr(maps.door, [0.8, 1.6], doorTints[i], { envMapIntensity: 0.3 });
+      const door = new THREE.Mesh(new RoundedBoxGeometry(0.95, 2.1, 0.05, 2, 0.01), doorMat);
+      door.position.set(x, 1.05 + 0.16, Z - 0.02);
       g.add(door);
-      const winTex = canvasTex(256, 192, (c) => {
+      for (const [w, h, dx, dy] of [[0.08, 2.2, -0.515, 0], [0.08, 2.2, 0.515, 0], [1.11, 0.08, 0, 1.11]] as number[][]) {
+        const f = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.07), trimMat);
+        f.position.set(x + dx, 1.05 + 0.16 + dy, Z - 0.03);
+        g.add(f);
+      }
+      const plate = new THREE.Mesh(new THREE.PlaneGeometry(0.2, 0.12), new THREE.MeshStandardMaterial({
+        map: canvasTex(128, 80, (c) => {
+          c.fillStyle = '#9c7a3a';
+          c.fillRect(0, 0, 128, 80);
+          c.fillStyle = '#2b1d0c';
+          c.font = 'bold 58px Georgia, serif';
+          c.textAlign = 'center';
+          c.textBaseline = 'middle';
+          c.fillText(String(num), 64, 44);
+        }), metalness: 0.8, roughness: 0.35,
+      }));
+      plate.rotation.y = Math.PI;
+      plate.position.set(x, 1.72, Z - 0.05);
+      g.add(plate);
+      const knob = new THREE.Mesh(new THREE.SphereGeometry(0.03, 12, 8), new THREE.MeshStandardMaterial({ color: 0xb08d45, metalness: 1, roughness: 0.3 }));
+      knob.position.set(x + 0.36, 1.12, Z - 0.07);
+      g.add(knob);
+
+      // window: frame, glass, curtain behind (lit rooms glow warm)
+      const wx = x + 1.45;
+      const curtainTex = canvasTex(256, 192, (c) => {
         const gr = c.createLinearGradient(0, 0, 256, 0);
-        gr.addColorStop(0, '#d9a45e');
-        gr.addColorStop(0.5, '#f2c887');
-        gr.addColorStop(1, '#c78a45');
+        gr.addColorStop(0, '#caa06a');
+        gr.addColorStop(0.5, '#e8c28a');
+        gr.addColorStop(1, '#b98a52');
         c.fillStyle = gr;
         c.fillRect(0, 0, 256, 192);
-        c.fillStyle = 'rgba(90,50,20,0.35)';
-        for (let k = 0; k < 10; k++) c.fillRect(k * 26, 0, 10, 192);
-        c.fillStyle = '#2a2622';
-        c.fillRect(0, 0, 256, 8);
-        c.fillRect(0, 184, 256, 8);
-        c.fillRect(124, 0, 8, 192);
+        for (let k = 0; k < 18; k++) {
+          c.fillStyle = `rgba(80,45,15,${0.15 + (k % 3) * 0.06})`;
+          c.fillRect(k * 14 + (k % 2) * 3, 0, 5, 192);
+        }
+        c.fillStyle = 'rgba(0,0,0,0.25)';
+        c.fillRect(122, 0, 12, 192);
       });
-      const wm = new THREE.MeshStandardMaterial({
-        color: 0x111111, map: winTex, emissive: 0xffffff, emissiveMap: winTex,
-        emissiveIntensity: lit[i] ? 0.9 : 0.0, roughness: 0.2, envMap: env,
-      });
-      wm.userData.base = lit[i] ? 0.9 : 0.0;
+      const wm = new THREE.MeshStandardMaterial({ color: 0x151210, map: curtainTex, emissive: 0xffffff, emissiveMap: curtainTex,
+        emissiveIntensity: 0, roughness: 0.9 });
+      wm.userData.base = lit[i] ? 1.1 : 0.0;
       this.windowMats.push(wm);
-      const win = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 1.1), wm);
-      win.position.set(x + 1.45, 1.45, Z - 0.005);
-      win.rotation.y = Math.PI;
-      g.add(win);
-      // window AC unit
-      const ac = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.38, 0.45),
-        new THREE.MeshStandardMaterial({ color: 0x8d8c86, roughness: 0.6, metalness: 0.5, envMap: env }));
-      ac.position.set(x + 1.45, 0.62, Z - 0.23);
+      const curtain = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 1.1), wm);
+      curtain.rotation.y = Math.PI;
+      // just proud of the wall face (the wall has no openings), behind the glass
+      curtain.position.set(wx, 1.55, Z - 0.006);
+      g.add(curtain);
+      const glass = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 1.1), glassMat);
+      glass.rotation.y = Math.PI;
+      glass.position.set(wx, 1.55, Z - 0.025);
+      g.add(glass);
+      for (const [w, h, dx, dy] of [[1.62, 0.07, 0, 0.585], [1.62, 0.1, 0, -0.6], [0.07, 1.2, -0.78, 0], [0.07, 1.2, 0.78, 0], [0.04, 1.1, 0, 0]] as number[][]) {
+        const f = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.08), trimMat);
+        f.position.set(wx + dx, 1.55 + dy, Z - 0.03);
+        g.add(f);
+      }
+      // window AC unit with a grille
+      const ac = new THREE.Mesh(new RoundedBoxGeometry(0.62, 0.4, 0.48, 2, 0.02), acMat);
+      ac.position.set(wx, 0.72, Z - 0.26);
+      ac.castShadow = true;
       g.add(ac);
+      const grille = new THREE.Mesh(new THREE.PlaneGeometry(0.52, 0.3), new THREE.MeshStandardMaterial({
+        map: canvasTex(128, 80, (c) => {
+          c.fillStyle = '#2c2b28';
+          c.fillRect(0, 0, 128, 80);
+          c.fillStyle = '#6d6a62';
+          for (let k = 0; k < 80; k += 5) c.fillRect(0, k, 128, 2);
+        }), metalness: 0.6, roughness: 0.6,
+      }));
+      grille.rotation.y = Math.PI;
+      grille.position.set(wx, 0.72, Z - 0.505);
+      g.add(grille);
       // porch lamp
-      const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.07, 12, 8),
-        new THREE.MeshStandardMaterial({ color: 0x222222, emissive: 0xffc27a, emissiveIntensity: lit[i] ? 3 : 0.2 }));
-      lamp.position.set(x + 0.75, 2.35, Z - 0.1);
+      const lampMat = new THREE.MeshStandardMaterial({ color: 0x3a3632, emissive: 0xffc27a, emissiveIntensity: 0, roughness: 0.4 });
+      lampMat.userData.base = lit[i] ? 2.6 : 0.25;
+      this.lampMats.push(lampMat);
+      const lamp = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, 0.16, 16), lampMat);
+      lamp.position.set(x + 0.75, 2.38, Z - 0.1);
       g.add(lamp);
     }
-    // one room with the TV on: cold flicker
     this.tvMat = this.windowMats[3];
 
-    // ice machine glowing at the end of the walkway
-    const ice = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.6, 0.7), [
-      new THREE.MeshStandardMaterial({ color: 0x6e7c86, roughness: 0.5, metalness: 0.6, envMap: env }),
-      new THREE.MeshStandardMaterial({ color: 0x6e7c86, roughness: 0.5, metalness: 0.6, envMap: env }),
-      new THREE.MeshStandardMaterial({ color: 0x6e7c86, roughness: 0.5, metalness: 0.6, envMap: env }),
-      new THREE.MeshStandardMaterial({ color: 0x6e7c86, roughness: 0.5, metalness: 0.6, envMap: env }),
-      new THREE.MeshStandardMaterial({ color: 0x6e7c86, roughness: 0.5, metalness: 0.6, envMap: env }),
-      new THREE.MeshStandardMaterial({ color: 0x0a1a24, emissive: 0x7ec8ff, emissiveIntensity: 0.9, roughness: 0.3,
-        map: canvasTex(128, 256, (c) => {
-          c.fillStyle = '#123';
-          c.fillRect(0, 0, 128, 256);
-          c.fillStyle = '#9fe0ff';
-          c.font = 'bold 34px Arial';
-          c.textAlign = 'center';
-          c.fillText('ICE', 64, 70);
-        }) }),
-    ]);
-    ice.position.set(7.2, 0.96, Z - 0.5);
-    g.add(ice);
+    // ice machine at the end of the walkway
+    const iceBody = new THREE.Mesh(new RoundedBoxGeometry(0.9, 1.6, 0.7, 3, 0.03), pbr(maps.metal, [0.6, 1], 0xa3a6a6, { metalness: 0.7 }));
+    iceBody.position.set(7.2, 0.96, Z - 0.5);
+    iceBody.castShadow = true;
+    g.add(iceBody);
+    const icePanel = new THREE.Mesh(new THREE.PlaneGeometry(0.62, 0.5), new THREE.MeshStandardMaterial({
+      map: canvasTex(256, 200, (c) => {
+        c.fillStyle = '#0d2330';
+        c.fillRect(0, 0, 256, 200);
+        c.fillStyle = '#bfeaff';
+        c.font = 'bold 96px Arial Black, Arial';
+        c.textAlign = 'center';
+        c.fillText('ICE', 128, 132);
+      }), emissive: 0x9fe0ff, emissiveIntensity: 0, roughness: 0.3,
+    }));
+    icePanel.material.userData.base = 1.2;
+    this.lampMats.push(icePanel.material);
+    icePanel.rotation.y = Math.PI;
+    icePanel.position.set(7.2, 1.3, Z - 0.856);
+    g.add(icePanel);
 
-    // --- the VACANCY sign on a pole
+    // ---------------------------------------------------------------- the sign
     const sign = new THREE.Group();
     sign.position.set(-1.3, 2.55, Z - 2.45);
     sign.scale.setScalar(0.8);
-    const board = new THREE.Mesh(new THREE.BoxGeometry(3.3, 1.35, 0.12),
-      new THREE.MeshStandardMaterial({ color: 0x14100e, roughness: 0.6, metalness: 0.4, envMap: env }));
-    board.position.set(0, 0.1, 0.06);
-    sign.add(board);
-    const frame = new THREE.Mesh(new THREE.BoxGeometry(3.4, 1.45, 0.08),
-      new THREE.MeshStandardMaterial({ color: 0x6a5a48, roughness: 0.4, metalness: 0.9, envMap: env }));
-    frame.position.set(0, 0.1, 0.1);
-    sign.add(frame);
-    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.07, 2.2, 10), postMat);
-    pole.position.set(0, -1.62, 0.12);
+    const boxMat = pbr(maps.metal, [1.2, 0.6], 0x2a2320, { metalness: 0.4 });
+    const cabinet = new THREE.Mesh(new RoundedBoxGeometry(3.4, 1.5, 0.3, 3, 0.04), boxMat);
+    cabinet.position.set(0, 0.1, 0.14);
+    cabinet.castShadow = true;
+    sign.add(cabinet);
+    const face = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 1.3), new THREE.MeshStandardMaterial({ color: 0x120e0c, roughness: 0.85, metalness: 0.1 }));
+    face.rotation.y = Math.PI;
+    face.position.set(0, 0.1, -0.012);
+    sign.add(face);
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.08, 2.4, 14), postMat);
+    pole.position.set(0, -1.7, 0.14);
+    pole.castShadow = true;
     sign.add(pole);
-    // painted MOTEL above
     const motelWord = canvasTex(512, 128, (c) => {
-      c.fillStyle = '#14100e';
+      c.fillStyle = '#120e0c';
       c.fillRect(0, 0, 512, 128);
-      c.fillStyle = '#d8c7a0';
-      c.font = 'bold 92px Georgia, serif';
+      c.fillStyle = '#ddcfad';
+      c.font = 'bold 96px Georgia, serif';
       c.textAlign = 'center';
       c.textBaseline = 'middle';
       c.fillText('MOTEL', 256, 70);
-    });
-    const motelPlate = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 0.5),
-      new THREE.MeshStandardMaterial({ map: motelWord, roughness: 0.7, envMap: env, envMapIntensity: 0.3 }));
-    motelPlate.position.set(0, 0.5, -0.005);
-    motelPlate.rotation.y = Math.PI;
-    sign.add(motelPlate);
-
-    this.neonMat = new THREE.MeshStandardMaterial({ color: 0x220000, emissive: 0xff1c10, emissiveIntensity: 0, roughness: 0.3 });
-    this.neonFlickerMat = this.neonMat.clone();
-    this.noMat = new THREE.MeshStandardMaterial({ color: 0x1a0505, emissive: 0xff1c10, emissiveIntensity: 0.0, roughness: 0.4 });
-    const word = neonWord('VACANCY', 0.38, 0.06, this.neonMat, 0.026);
-    // the last two letters are on a flaky transformer
-    word.children.forEach((m) => {
-      if (m.userData.letter === 'C' || m.userData.letter === 'Y') {
-        const idx = word.children.indexOf(m);
-        if (idx >= word.children.length - 3) (m as THREE.Mesh).material = this.neonFlickerMat;
+      // chipped paint
+      for (let k = 0; k < 90; k++) {
+        c.fillStyle = 'rgba(18,14,12,0.85)';
+        c.fillRect(Math.random() * 512, Math.random() * 128, 2 + Math.random() * 5, 1 + Math.random() * 3);
       }
     });
-    // text faces the car (-Z); rotating it half a turn makes it read left to right from there
-    const no = neonWord('NO', 0.3, 0.05, this.noMat, 0.02);
+    const motelPlate = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 0.52), new THREE.MeshStandardMaterial({ map: motelWord, roughness: 0.7 }));
+    motelPlate.rotation.y = Math.PI;
+    motelPlate.position.set(0, 0.48, -0.02);
+    sign.add(motelPlate);
+
+    // glass tubes: bright core when lit, a dull red glass when off
+    this.neonMat = new THREE.MeshStandardMaterial({ color: 0x3a0806, emissive: 0xff2412, emissiveIntensity: 0, roughness: 0.25 });
+    this.neonFlickerMat = this.neonMat.clone();
+    this.noMat = new THREE.MeshStandardMaterial({ color: 0x2a0806, emissive: 0xff2412, emissiveIntensity: 0, roughness: 0.3 });
+    const word = neonWord('VACANCY', 0.38, 0.06, this.neonMat, 0.017);
+    word.children.forEach((m, idx) => {
+      if (idx >= word.children.length - 3) (m as THREE.Mesh).material = this.neonFlickerMat;
+    });
+    const no = neonWord('NO', 0.3, 0.05, this.noMat, 0.015);
     const gap = 0.14;
     const total = word.userData.width + gap + no.userData.width;
-    const left = total / 2; // viewer's left is +X
+    const left = total / 2; // text faces the car (-Z): half a turn makes it read left to right from there
     no.rotation.y = Math.PI;
-    no.position.set(left, -0.3, -0.02);
+    no.position.set(left, -0.3, -0.03);
     word.rotation.y = Math.PI;
-    word.position.set(left - no.userData.width - gap, -0.36, -0.02);
+    word.position.set(left - no.userData.width - gap, -0.36, -0.03);
     sign.add(word, no);
+    // tube supports
+    for (let k = 0; k < 6; k++) {
+      const s = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.04, 6), new THREE.MeshStandardMaterial({ color: 0x777777, metalness: 1, roughness: 0.4 }));
+      s.rotation.x = Math.PI / 2;
+      s.position.set(-1.4 + k * 0.52, -0.2, -0.01);
+      sign.add(s);
+    }
     g.add(sign);
 
-    this.neonLight = new THREE.RectAreaLight(0xff2418, 0, 2.6, 0.5);
-    this.neonLight.position.set(-1.3, 2.3, Z - 2.6);
-    this.neonLight.lookAt(-1.0, 0.7, 0);
-    g.add(this.neonLight);
     this.neonFill = new THREE.PointLight(0xff2a1a, 0, 9, 1.8);
     this.neonFill.position.set(-1.3, 2.25, Z - 2.8);
-    g.add(this.neonFill);
-    this.windowLight = new THREE.PointLight(0xffb36b, 0, 7, 2);
-    this.windowLight.position.set(1.5, 1.6, Z - 1.4);
-    g.add(this.windowLight);
+    // (no RectAreaLight: its LTC shading costs every car fragment even at zero
+    // intensity; the neon's reflection in the paint comes from the env map)
+    this.lights.add(this.neonFill);
 
+    g.traverse((o) => {
+      const m = o as THREE.Mesh;
+      if (m.isMesh) {
+        m.receiveShadow = true;
+        m.raycast = () => undefined;
+      }
+    });
     g.visible = false;
   }
 
@@ -310,13 +362,12 @@ export class Motel {
 
   get isOn() { return this.on; }
 
-  update(dt: number, t: number) {
+  /** night: 1 at night, ~0 in daylight (lit windows and lamps matter less) */
+  update(dt: number, t: number, night: number) {
     this.fade += ((this.on ? 1 : 0) - this.fade) * Math.min(1, dt * 3);
     if (!this.on && this.fade < 0.01) {
       this.group.visible = false;
-      this.neonLight.intensity = 0;
       this.neonFill.intensity = 0;
-      this.windowLight.intensity = 0;
       return;
     }
     // neon: mostly steady with a mains buzz, then bursts of stutter
@@ -333,18 +384,17 @@ export class Motel {
     const hum = 0.96 + 0.04 * Math.sin(t * 120 * Math.PI);
     this.level += (target - this.level) * (target < this.level ? 0.9 : 0.5);
     const lv = this.level * hum * this.fade;
-    this.neonMat.emissiveIntensity = 4.2 * lv;
-    // the last letters drop out on their own sometimes
+    const glow = 3.6 * (0.45 + 0.55 * night);
+    this.neonMat.emissiveIntensity = glow * lv;
     const flaky = Math.sin(t * 13.7) > 0.93 || (this.burst > 0 && Math.random() < 0.5) ? 0.05 : 1;
-    this.neonFlickerMat.emissiveIntensity = 4.2 * lv * (this.reduced ? 1 : flaky);
-    this.noMat.emissiveIntensity = 0.04 * this.fade;
-    this.neonLight.intensity = 9 * lv;
-    this.neonFill.intensity = 14 * lv;
-    this.windowLight.intensity = 5 * this.fade;
-    for (const m of this.windowMats) m.emissiveIntensity = m.userData.base * this.fade;
-    // TV glow in room 15
+    this.neonFlickerMat.emissiveIntensity = glow * lv * (this.reduced ? 1 : flaky);
+    this.noMat.emissiveIntensity = 0.05 * this.fade;
+    this.neonFill.intensity = 14 * lv * night;
+    for (const m of this.windowMats) m.emissiveIntensity = m.userData.base * this.fade * (0.25 + 0.75 * night);
+    for (const m of this.lampMats) m.emissiveIntensity = m.userData.base * this.fade * (0.2 + 0.8 * night);
+    // someone in room 15 is watching TV
     const tv = 0.5 + 0.35 * Math.sin(t * 7.1) * Math.sin(t * 2.3) + (Math.random() < 0.05 ? 0.3 : 0);
     this.tvMat.emissive.setRGB(0.55 + 0.2 * tv, 0.7 + 0.2 * tv, 1.0);
-    this.tvMat.emissiveIntensity = (0.4 + tv * 0.5) * this.fade;
+    this.tvMat.emissiveIntensity = (0.4 + tv * 0.5) * this.fade * (0.3 + 0.7 * night);
   }
 }

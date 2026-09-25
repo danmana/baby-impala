@@ -1,5 +1,6 @@
 import { h, svg, ICONS, checkboxSvg } from './dom';
 import type { ViewName } from '../scene/director';
+import type { PresetName } from '../scene/lighting';
 import { isTouch } from '../scene/quality';
 
 export interface HudHandlers {
@@ -10,6 +11,7 @@ export interface HudHandlers {
   volume: (v: number) => void;
   mute: (m: boolean) => void;
   title: () => void;
+  light: (p: PresetName) => void;
 }
 
 export type ToggleKey = 'engine' | 'spotlights' | 'rain' | 'motel' | 'sigils';
@@ -38,26 +40,40 @@ export class Hud {
   private muteBtn: HTMLButtonElement;
   private slider: HTMLInputElement;
   private checklist: HTMLElement;
+  private lightBtns = new Map<PresetName, HTMLButtonElement>();
   readonly trunkNote: HTMLElement;
   private hintDone = false;
 
   constructor(host: HTMLElement, on: HudHandlers) {
     this.root = host;
-    const title = h('button', { class: 'title-scrap paper', type: 'button', 'aria-label': 'About Baby', onclick: () => on.title() },
+    const title = h('button', { class: 'title-scrap sheet', type: 'button', 'aria-label': 'About Baby', onclick: () => on.title() },
       h('strong', {}, 'Baby'), h('span', {}, '’67 Chevrolet Impala, four-door hardtop'));
 
     const tabs = h('nav', { class: 'tabs', role: 'tablist', 'aria-label': 'Views' });
     for (const t of TABS) {
       const b = h('button', {
-        class: 'tab paper', type: 'button', role: 'tab', 'aria-selected': t.view === 'normal' ? 'true' : 'false',
+        class: 'tab', type: 'button', role: 'tab', 'aria-selected': t.view === 'normal' ? 'true' : 'false',
         onclick: () => on.view(t.view),
       }, t.label);
       this.tabs.set(t.view, b);
       tabs.append(b);
     }
 
-    this.checklist = h('section', { class: 'checklist paper', 'aria-label': 'Scene' },
+    this.checklist = h('section', { class: 'checklist sheet', 'aria-label': 'Scene' },
       h('span', { class: 'tape' }), h('h2', {}, 'tonight:'));
+    const lightRow = h('div', { class: 'light-row', role: 'radiogroup', 'aria-label': 'Light' });
+    (['moon', 'sunset', 'day'] as PresetName[]).forEach((p, i) => {
+      const b = h('button', { class: 'light', type: 'button', role: 'radio', 'aria-checked': p === 'moon' ? 'true' : 'false' });
+      b.innerHTML = `<svg viewBox="0 0 30 30" preserveAspectRatio="none" aria-hidden="true"><path class="ring" pathLength="100" d="M${25 - i} ${9 + i * 0.5} C ${21 + i} ${2.5}, ${5 - i * 0.5} ${3 + i * 0.4}, ${2.5} ${14 + i * 0.3} C ${1 + i * 0.5} ${25}, ${24 - i} ${28 - i * 0.4}, ${27.5} ${16 - i * 0.4} C ${28.5} ${11}, ${24} ${6}, ${17 + i} ${4.5}"/></svg>`;
+      b.append(h('span', {}, p === 'moon' ? 'Moon' : p === 'sunset' ? 'Sunset' : 'Day'));
+      b.addEventListener('click', () => {
+        this.setLight(p);
+        on.light(p);
+      });
+      this.lightBtns.set(p, b);
+      lightRow.append(b);
+    });
+    this.checklist.append(lightRow);
     TOGGLES.forEach((t, i) => {
       const b = h('button', { class: 'check', type: 'button', role: 'switch', 'aria-checked': 'false', 'data-key': t.key });
       b.innerHTML = checkboxSvg(i + 1);
@@ -87,7 +103,7 @@ export class Hud {
       ),
     );
 
-    const journalBtn = h('button', { class: 'journal-btn paper', type: 'button', 'aria-label': 'Scene controls', 'aria-expanded': 'false' });
+    const journalBtn = h('button', { class: 'journal-btn sheet', type: 'button', 'aria-label': 'Scene controls', 'aria-expanded': 'false' });
     journalBtn.append(svg(ICONS.journal));
     journalBtn.addEventListener('click', () => {
       const open = !this.checklist.classList.contains('open');
@@ -100,7 +116,7 @@ export class Hud {
     this.trunkNote = h('p', { class: 'trunk-note', 'aria-live': 'polite' });
 
     const footer = h('footer', { class: 'footer' },
-      h('div', {}, 'Unofficial fan page. Not affiliated with Warner Bros., The CW or the creators of Supernatural.'),
+      h('div', {}, 'Unofficial fan page'),
       h('div', { html: 'Made by <a href="https://x.com/danmana" target="_blank" rel="noopener">@danmana</a> and <a href="https://www.anthropic.com/claude-opus-5-5" target="_blank" rel="noopener">Opus 5.5</a> · ' }),
     );
     const credits = h('details', {},
@@ -108,6 +124,8 @@ export class Hud {
       h('div', { class: 'credits', html:
         'Base 3D model: <a href="https://sketchfab.com/3d-models/chevrolet-impala-1967-bce35ef0c10d41fdb3f7d8c4225144d2" target="_blank" rel="noopener">“Chevrolet Impala 1967”</a> by <a href="https://sketchfab.com/Eques_inferno" target="_blank" rel="noopener">Eques_inferno</a>, CC BY 4.0, adapted. ' +
         'Music on the local tapes by Kevin MacLeod (<a href="https://incompetech.com" target="_blank" rel="noopener">incompetech.com</a>), CC BY 4.0. ' +
+        'HDRIs, textures and trunk props from <a href="https://polyhaven.com" target="_blank" rel="noopener">Poly Haven</a> and <a href="https://ambientcg.com" target="_blank" rel="noopener">ambientCG</a> (CC0). ' +
+        'Engine and door sounds: Joseph Sardin, <a href="https://bigsoundbank.com" target="_blank" rel="noopener">BigSoundBank</a> (CC0); tape deck and creak: PDSounds (public domain). ' +
         'Fonts: League Gothic, Special Elite, Reenie Beanie (OFL / Apache 2.0).' }),
     );
     footer.lastElementChild?.append(credits);
@@ -121,6 +139,10 @@ export class Hud {
 
   setView(v: ViewName) {
     this.tabs.forEach((b, k) => b.setAttribute('aria-selected', String(k === v)));
+  }
+
+  setLight(p: PresetName) {
+    this.lightBtns.forEach((b, k) => b.setAttribute('aria-checked', String(k === p)));
   }
 
   setToggle(key: ToggleKey, on: boolean) {

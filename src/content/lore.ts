@@ -39,7 +39,7 @@ export const HOTSPOTS: Hotspot[] = [
   {
     id: 'plates',
     label: 'KAZ 2Y5 / CNK 80Q3',
-    pos: [2.62, 0.34, 0.0],
+    pos: [2.6, 0.36, -0.38],
     view: 'exterior',
     lore: {
       kicker: 'Click the plate. Go on.',
@@ -293,6 +293,8 @@ const item = (name: string, body: string[], refs?: string, note?: string): Trunk
 });
 
 export const TRUNK_ITEMS: Record<string, TrunkItem> = {
+  rifle: item('Hunting rifle', ['A bolt-action rifle for anything that needs to be put down from a distance. Usually loaded with silver or iron rounds.']),
+  pistol: item('Handgun', ['A plain automatic for everyday trouble. With silver or iron rounds it works on more than just people.']),
   shotgun: item('Pump shotgun', ['The workhorse of the arsenal. Loaded with rock salt it drives off ghosts; with slugs it handles anything with a body.'], 'Everywhere, from the Pilot on'),
   sawed_off: item('Sawed-off shotgun', ['Short enough to hide under a jacket. Rock salt for spirits, silver shot for shapeshifters. Dean’s favourite argument-ender.']),
   rock_salt: item('Rock-salt shells', ['Salt disperses a ghost for a while. It won’t kill one, but it buys enough time to dig up the bones.'], '1.01 “Pilot” and every salt-and-burn after'),

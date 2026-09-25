@@ -2,13 +2,6 @@ import * as THREE from 'three';
 import { h } from './dom';
 import type { Hotspot, HotspotView } from '../content/lore';
 
-const SIGIL = `<svg viewBox="0 0 34 34">
-  <circle class="ring" cx="17" cy="17" r="11"/>
-  <circle class="dot" cx="17" cy="17" r="10.5"/>
-  <circle class="sig" cx="17" cy="17" r="9"/>
-  <path class="sig" d="M17 9.5 L21.4 22.8 L10.1 14.6 H23.9 L12.6 22.8 Z" stroke-linejoin="round"/>
-</svg>`;
-
 interface Marker {
   spot: Hotspot;
   el: HTMLButtonElement;
@@ -17,14 +10,15 @@ interface Marker {
 }
 
 /**
- * HTML overlays projected from 3D: pulsing sigil hotspots, the pencilled
- * labels of the exploded view, and the name tag that follows the pointer in
- * the trunk.
+ * HTML overlays projected from 3D. The sigils themselves are painted sprites
+ * in the scene; here each gets an invisible, focusable hit target (with its
+ * handwritten label), plus the pencilled labels of the exploded view and the
+ * name tag that follows the pointer in the trunk.
  */
 export class Overlay {
   readonly root: HTMLElement;
   private markers: Marker[] = [];
-  private xlabels: { el: HTMLElement; pos: THREE.Vector3 }[] = [];
+  private xlabels: { el: HTMLElement; pos: THREE.Vector3; rot: number }[] = [];
   private xroot: HTMLElement;
   readonly tag: HTMLElement;
   private v = new THREE.Vector3();
@@ -33,20 +27,29 @@ export class Overlay {
   enabled = true;
   view: HotspotView | null = null;
 
-  constructor(host: HTMLElement, spots: Hotspot[], onPick: (s: Hotspot) => void, private occluders: () => THREE.Object3D[]) {
+  onHover: ((id: string | null) => void) | null = null;
+
+  constructor(host: HTMLElement, spots: Hotspot[], onPick: (s: Hotspot) => void, private occluders: () => THREE.Object3D[],
+    posFor: (id: string) => THREE.Vector3 | null) {
     this.root = h('div', { class: 'hotspots' });
     for (const s of spots) {
-      const el = h('button', { class: 'hotspot hidden', type: 'button', 'aria-label': s.label, html: SIGIL });
+      const el = h('button', { class: 'hotspot hidden', type: 'button', 'aria-label': s.label });
       el.append(h('span', { class: 'label' }, s.label));
       el.addEventListener('click', (e) => {
         e.stopPropagation();
         onPick(s);
       });
+      const enter = () => this.onHover?.(s.id);
+      const leave = () => this.onHover?.(null);
+      el.addEventListener('pointerenter', enter);
+      el.addEventListener('focus', enter);
+      el.addEventListener('pointerleave', leave);
+      el.addEventListener('blur', leave);
       this.root.append(el);
-      this.markers.push({ spot: s, el, pos: new THREE.Vector3(...s.pos), visible: false });
+      this.markers.push({ spot: s, el, pos: posFor(s.id) ?? new THREE.Vector3(...s.pos), visible: false });
     }
     this.xroot = h('div', { class: 'xlabels passthrough' });
-    this.tag = h('div', { class: 'tag paper' });
+    this.tag = h('div', { class: 'tag sheet' });
     host.append(this.root, this.xroot, this.tag);
   }
 
@@ -58,9 +61,8 @@ export class Overlay {
     this.xroot.replaceChildren();
     this.xlabels = labels.map((l) => {
       const el = h('div', { class: 'xlabel' }, l.text);
-      el.style.transform = `rotate(${(Math.random() - 0.5) * 6}deg)`;
       this.xroot.append(el);
-      return { el, pos: l.pos };
+      return { el, pos: l.pos, rot: (Math.random() - 0.5) * 6 };
     });
   }
 
@@ -118,8 +120,7 @@ export class Overlay {
       }
       placed.push({ x: p.x, y, w: bw, h: bh });
       l.el.style.opacity = String(a);
-      l.el.style.left = `${p.x}px`;
-      l.el.style.top = `${y}px`;
+      l.el.style.transform = `translate(${p.x.toFixed(1)}px, ${y.toFixed(1)}px) rotate(${l.rot.toFixed(1)}deg)`;
     }
   }
 

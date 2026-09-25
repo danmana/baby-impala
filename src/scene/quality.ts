@@ -50,11 +50,11 @@ export function qualityFor(tier: Tier): Quality {
   const dpr = window.devicePixelRatio || 1;
   switch (tier) {
     case 'high':
-      return { tier, pixelRatio: Math.min(dpr, 2), shadows: true, shadowMapSize: 2048, reflectionScale: 0.5, bloom: true, particles: 1, msaa: 4, volumetrics: true };
+      return { tier, pixelRatio: Math.min(dpr, 1.25), shadows: true, shadowMapSize: 2048, reflectionScale: 0.4, bloom: true, particles: 1, msaa: 4, volumetrics: true };
     case 'medium':
-      return { tier, pixelRatio: Math.min(dpr, 1.5), shadows: true, shadowMapSize: 1024, reflectionScale: 0.35, bloom: true, particles: 0.6, msaa: 2, volumetrics: true };
+      return { tier, pixelRatio: Math.min(dpr, 1.25), shadows: true, shadowMapSize: 1024, reflectionScale: 0.3, bloom: true, particles: 0.6, msaa: 2, volumetrics: true };
     default:
-      return { tier, pixelRatio: Math.min(dpr, 1), shadows: false, shadowMapSize: 512, reflectionScale: 0.25, bloom: false, particles: 0.3, msaa: 0, volumetrics: false };
+      return { tier, pixelRatio: Math.min(dpr, 0.75), shadows: false, shadowMapSize: 512, reflectionScale: 0.25, bloom: false, particles: 0.3, msaa: 0, volumetrics: false };
   }
 }
 

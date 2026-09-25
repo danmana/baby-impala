@@ -135,11 +135,14 @@ export class Director {
 
   get busy() { return this.tween !== null; }
 
-  /** Tall phone screens need the camera further back to fit her length. */
+  /**
+   * The views are composed for a ~16:10 screen, where she spans about two thirds
+   * of the width. Narrower screens pull the camera back until she fits across.
+   */
   private fit(v: ViewDef): ViewDef {
     if (v === VIEWS.interior) return v;
-    const a = this.camera.aspect;
-    const s = a < 0.62 ? 1.5 : a < 0.9 ? 1.3 : a < 1.2 ? 1.12 : 1;
+    const tanH = Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2)) * this.camera.aspect;
+    const s = Math.max(1, 0.4 / tanH);
     if (s === 1) return v;
     const pos = v.target.clone().add(v.pos.clone().sub(v.target).multiplyScalar(s));
     return { ...v, pos, maxDist: v.maxDist * s, minDist: v.minDist * Math.min(s, 1.3) };

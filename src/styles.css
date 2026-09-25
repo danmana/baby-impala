@@ -66,8 +66,12 @@ html, body {
   pointer-events: none;
   font-family: var(--type);
 }
-#ui > * { pointer-events: auto; }
-#ui .passthrough { pointer-events: none; }
+/* only real controls take pointer input; everything else lets it through to the 3D view */
+#ui .loader, #ui .title-scrap, #ui .tabs, #ui .checklist, #ui .journal-btn, #ui .footer,
+#ui .lore, #ui .deck, #ui .hotspot { pointer-events: auto; }
+#ui .hotspot.hidden { pointer-events: none; }
+/* things that move every frame get their own layers so they never dirty the paper */
+.hotspot, .xlabel, .tag { will-change: transform; }
 
 button {
   font: inherit;
@@ -82,39 +86,58 @@ button {
   outline-offset: 3px;
 }
 
-/* ------------------------------------------------------------------ paper */
-.paper {
-  position: relative;
-  background-color: var(--paper);
-  background-image:
-    radial-gradient(ellipse at 18% 8%, rgba(255, 250, 235, 0.35), transparent 55%),
-    radial-gradient(ellipse at 85% 95%, rgba(110, 80, 40, 0.28), transparent 60%),
-    var(--fibers),
-    var(--grain);
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55), 0 2px 5px rgba(0, 0, 0, 0.4);
-  color: var(--ink);
+/* ------------------------------------------------------------------ paper
+   Every scrap of paper is a .sheet: the element carries the drop shadow (so it
+   follows the torn outline) and its ::before is the paper itself, built from
+   a scanned page texture, multiply stains, edge foxing and light falloff. */
+:root {
+  --edge-cut: polygon(0% 0.46px, 3.57% 0.5px, 7.14% 0.32px, 10.71% 0.35px, 14.29% 0.32px, 17.86% 0.04px, 21.43% 0.04px, 25% 0.52px, 28.57% 0.33px, 32.14% 0.43px, 35.71% 0.92px, 39.29% 0.75px, 42.86% 0.99px, 46.43% 0.84px, 50% 0.91px, 53.57% 0.61px, 57.14% 0.76px, 60.71% 0.77px, 64.29% 0.49px, 67.86% 0.5px, 71.43% 0.38px, 75% 0.04px, 78.57% 0.38px, 82.14% 0.33px, 85.71% 0.26px, 89.29% 0.22px, 92.86% 0.75px, 96.43% 0.66px, 100% 0.87px, calc(100% - 0.73px) 2.5%, calc(100% - 0.53px) 5%, calc(100% - 0.56px) 7.5%, calc(100% - 0.22px) 10%, calc(100% - 0.44px) 12.5%, calc(100% - 0.28px) 15%, calc(100% - 0.62px) 17.5%, calc(100% - 0.7px) 20%, calc(100% - 0.4px) 22.5%, calc(100% - 0.54px) 25%, calc(100% - 0.68px) 27.5%, calc(100% - 1.15px) 30%, calc(100% - 0.9px) 32.5%, calc(100% - 0.98px) 35%, calc(100% - 0.75px) 37.5%, calc(100% - 0.76px) 40%, calc(100% - 0.58px) 42.5%, calc(100% - 0.44px) 45%, calc(100% - 0.46px) 47.5%, calc(100% - 0.37px) 50%, calc(100% - 0.5px) 52.5%, calc(100% - 0.37px) 55%, calc(100% - 0.54px) 57.5%, calc(100% - 0.58px) 60%, calc(100% - 0.76px) 62.5%, calc(100% - 0.71px) 65%, calc(100% - 0.55px) 67.5%, calc(100% - 1.03px) 70%, calc(100% - 1.15px) 72.5%, calc(100% - 1.15px) 75%, calc(100% - 0.95px) 77.5%, calc(100% - 0.97px) 80%, calc(100% - 0.6px) 82.5%, calc(100% - 0.82px) 85%, calc(100% - 0.56px) 87.5%, calc(100% - 0.29px) 90%, calc(100% - 0.09px) 92.5%, calc(100% - 0.47px) 95%, calc(100% - 0.54px) 97.5%, 100% calc(100% - 0.66px), 96.43% calc(100% - 0.97px), 92.86% calc(100% - 0.62px), 89.29% calc(100% - 0.33px), 85.71% calc(100% - 0.3px), 82.14% calc(100% - 0.5px), 78.57% calc(100% - 0.51px), 75% calc(100% - 0.03px), 71.43% calc(100% - 0.42px), 67.86% calc(100% - 0.18px), 64.29% calc(100% - 0.69px), 60.71% calc(100% - 0.6px), 57.14% calc(100% - 1.05px), 53.57% calc(100% - 1.21px), 50% calc(100% - 0.99px), 46.43% calc(100% - 1.3px), 42.86% calc(100% - 0.87px), 39.29% calc(100% - 0.66px), 35.71% calc(100% - 0.85px), 32.14% calc(100% - 0.39px), 28.57% calc(100% - 0.36px), 25% calc(100% - 0.37px), 21.43% calc(100% - 0.4px), 17.86% calc(100% - 0.09px), 14.29% calc(100% - 0.03px), 10.71% calc(100% - 0.57px), 7.14% calc(100% - 0.34px), 3.57% calc(100% - 0.84px), 0% calc(100% - 0.93px), 0.19px 97.5%, 0.24px 95%, 0.31px 92.5%, 0.45px 90%, 0.52px 87.5%, 0.62px 85%, 0.75px 82.5%, 1px 80%, 0.84px 77.5%, 0.82px 75%, 0.94px 72.5%, 0.64px 70%, 0.58px 67.5%, 0.8px 65%, 0.47px 62.5%, 0.38px 60%, 0.04px 57.5%, 0.21px 55%, 0.29px 52.5%, 0.06px 50%, 0.44px 47.5%, 0.54px 45%, 0.37px 42.5%, 0.76px 40%, 0.77px 37.5%, 0.93px 35%, 0.78px 32.5%, 0.93px 30%, 0.88px 27.5%, 0.44px 25%, 0.35px 22.5%, 0.54px 20%, 0.59px 17.5%, 0.16px 15%, 0.23px 12.5%, 0.3px 10%, 0.21px 7.5%, 0.31px 5%, 0.39px 2.5%);
+  --edge-torn: polygon(0% 0.84px, 3.85% 0.82px, 7.69% 1.18px, 11.54% 0.8px, 15.38% 1.03px, 19.23% 0.82px, 23.08% 0.5px, 26.92% 0.64px, 30.77% 0.21px, 34.62% 0.36px, 38.46% 0.06px, 42.31% 0.06px, 46.15% 0.3px, 50% 0.64px, 53.85% 0.32px, 57.69% 0.52px, 61.54% 0.91px, 65.38% 1.24px, 69.23% 1.09px, 73.08% 1.02px, 76.92% 1.37px, 80.77% 0.72px, 84.62% 1.13px, 88.46% 0.64px, 92.31% 0.41px, 96.15% 0.26px, 100% 0.27px, calc(100% - 1.42px) 3.33%, calc(100% - 1.01px) 6.67%, calc(100% - 1.28px) 10%, calc(100% - 1.26px) 13.33%, calc(100% - 0.95px) 16.67%, calc(100% - 0.92px) 20%, calc(100% - 0.41px) 23.33%, calc(100% - 0.26px) 26.67%, calc(100% - 0.24px) 30%, calc(100% - 0.51px) 33.33%, calc(100% - 0.31px) 36.67%, calc(100% - 0.27px) 40%, calc(100% - 0.56px) 43.33%, calc(100% - 0.6px) 46.67%, calc(100% - 0.65px) 50%, calc(100% - 1.16px) 53.33%, calc(100% - 1.23px) 56.67%, calc(100% - 1.01px) 60%, calc(100% - 1.29px) 63.33%, calc(100% - 1.24px) 66.67%, calc(100% - 1.42px) 70%, calc(100% - 1.2px) 73.33%, calc(100% - 0.73px) 76.67%, calc(100% - 1.07px) 80%, calc(100% - 0.3px) 83.33%, calc(100% - 0.39px) 86.67%, calc(100% - 0.56px) 90%, calc(100% - 0.11px) 93.33%, calc(100% - 0.4px) 96.67%, 100% calc(100% - 0.14px), 96.15% calc(100% - 0.78px), 92.31% calc(100% - 1.03px), 88.46% calc(100% - 1.06px), 84.62% calc(100% - 1.47px), 80.77% calc(100% - 1.15px), 76.92% calc(100% - 1.54px), 73.08% calc(100% - 1.47px), 69.23% calc(100% - 1.4px), 65.38% calc(100% - 1.19px), 61.54% calc(100% - 1.35px), 57.69% calc(100% - 1.25px), 53.85% calc(100% - 0.69px), 50% calc(100% - 0.69px), 46.15% calc(100% - 0.1px), 42.31% calc(100% - 0.57px), 38.46% calc(100% - 0.55px), 34.62% calc(100% - 0.91px), 30.77% calc(100% - 0.91px), 26.92% calc(100% - 0.64px), 23.08% calc(100% - 0.91px), 19.23% calc(100% - 1.31px), 15.38% calc(100% - 0.91px), 11.54% calc(100% - 1.35px), 7.69% calc(100% - 1.12px), 3.85% calc(100% - 1.03px), 0% calc(100% - 0.87px), 4.97px 98.44%, 4.21px 96.88%, 2.22px 95.31%, 3.97px 93.75%, 5.7px 92.19%, 2.6px 90.62%, 3.56px 89.06%, 5.19px 87.5%, 4.12px 85.94%, 3.4px 84.38%, 5.68px 82.81%, 3.81px 81.25%, 2.36px 79.69%, 4.61px 78.12%, 5.16px 76.56%, 2.07px 75%, 3.98px 73.44%, 4.29px 71.88%, 2.2px 70.31%, 3.74px 68.75%, 5.01px 67.19%, 3.15px 65.62%, 3.32px 64.06%, 4.21px 62.5%, 3.52px 60.94%, 2.91px 59.38%, 5.15px 57.81%, 4.79px 56.25%, 2.6px 54.69%, 4.87px 53.12%, 4.73px 51.56%, 1.9px 50%, 3.83px 48.44%, 5.53px 46.88%, 2.67px 45.31%, 4.67px 43.75%, 5.57px 42.19%, 2.94px 40.62%, 3.5px 39.06%, 4.39px 37.5%, 3.8px 35.94%, 2.58px 34.38%, 4.27px 32.81%, 3.7px 31.25%, 2.14px 29.69%, 4.57px 28.12%, 3.82px 26.56%, 1.47px 25%, 3.98px 23.44%, 4.17px 21.88%, 2.31px 20.31%, 3.44px 18.75%, 5.7px 17.19%, 3.18px 15.62%, 3.18px 14.06%, 4.65px 12.5%, 3.43px 10.94%, 2.91px 9.38%, 4.37px 7.81%, 4.64px 6.25%, 2.85px 4.69%, 4.79px 3.12%, 4.52px 1.56%);
+  --edge-scrap: polygon(0% 0.61px, 4.55% 0.81px, 9.09% 1.47px, 13.64% 1.09px, 18.18% 1.44px, 22.73% 1.85px, 27.27% 1.58px, 31.82% 2.22px, 36.36% 2.49px, 40.91% 2.71px, 45.45% 1.65px, 50% 1.73px, 54.55% 1.17px, 59.09% 1.83px, 63.64% 1.39px, 68.18% 0.27px, 72.73% 1.38px, 77.27% 1.3px, 81.82% 0.94px, 86.36% 1.05px, 90.91% 0.68px, 95.45% 0.78px, 100% 1.77px, calc(100% - 0.15px) 12.5%, calc(100% - 0.51px) 25%, calc(100% - 0.84px) 37.5%, calc(100% - 0.85px) 50%, calc(100% - 1.79px) 62.5%, calc(100% - 2.05px) 75%, calc(100% - 2.84px) 87.5%, 100% calc(100% - 2px), 95.45% calc(100% - 1.84px), 90.91% calc(100% - 1.29px), 86.36% calc(100% - 1.27px), 81.82% calc(100% - 0.77px), 77.27% calc(100% - 0.43px), 72.73% calc(100% - 1.59px), 68.18% calc(100% - 1.76px), 63.64% calc(100% - 1.8px), 59.09% calc(100% - 1.92px), 54.55% calc(100% - 1.66px), 50% calc(100% - 1.84px), 45.45% calc(100% - 2.17px), 40.91% calc(100% - 1.96px), 36.36% calc(100% - 3.03px), 31.82% calc(100% - 2.35px), 27.27% calc(100% - 2.8px), 22.73% calc(100% - 1.79px), 18.18% calc(100% - 2.32px), 13.64% calc(100% - 1.82px), 9.09% calc(100% - 0.25px), 4.55% calc(100% - 0.39px), 0% calc(100% - 1.39px), 2.16px 87.5%, 2.65px 75%, 1.59px 62.5%, 0.85px 50%, 1.31px 37.5%, 1.27px 25%, 0.42px 12.5%);
 }
-.paper.stain::after {
+
+.sheet {
+  position: relative;
+  isolation: isolate;
+  color: var(--ink);
+  /* a plain box shadow, not filter: drop-shadow; over a canvas that repaints
+     every frame, filters get re-run by the compositor. The torn edges wander
+     only a few pixels, so the shadow shows through the notches like it would. */
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.5), 0 10px 18px -4px rgba(0, 0, 0, 0.5);
+}
+.sheet::before {
   content: '';
   position: absolute;
-  width: 110px;
-  height: 110px;
-  right: 8%;
-  bottom: 6%;
-  border-radius: 50%;
-  box-shadow: inset 0 0 0 5px rgba(120, 80, 35, 0.16), inset 0 0 12px 8px rgba(120, 80, 35, 0.07);
-  pointer-events: none;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background-color: #d4c49d;
+  background-image:
+    radial-gradient(135% 105% at 42% 36%, transparent 48%, rgba(112, 76, 32, 0.34) 100%),
+    linear-gradient(var(--light-a, 168deg), rgba(255, 249, 230, 0.3), transparent 36%, transparent 68%, rgba(58, 38, 16, 0.14)),
+    var(--tex-paper-stains, none),
+    var(--tex-paper-page, none);
+  background-size: 100% 100%, 100% 100%, 900px 900px, 600px 600px;
+  background-position: 0 0, 0 0, var(--stain-at, 30% 20%), var(--grain-at, 0 0);
+  background-blend-mode: multiply, soft-light, multiply, normal;
+  box-shadow: inset 0 0 0 1px rgba(92, 64, 28, 0.16), inset 0 0 26px rgba(112, 78, 34, 0.24);
+  clip-path: var(--edge, var(--edge-cut));
 }
 .tape {
   position: absolute;
-  width: 92px;
+  width: 96px;
   height: 26px;
-  background: var(--tape);
-  background-image: linear-gradient(90deg, rgba(255, 255, 255, 0.18), transparent 30%, rgba(0, 0, 0, 0.04) 70%, rgba(255, 255, 255, 0.12));
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
-  clip-path: polygon(3% 8%, 11% 0, 22% 7%, 34% 1%, 47% 6%, 60% 0, 72% 6%, 86% 1%, 97% 7%, 100% 50%, 96% 92%, 84% 100%, 70% 94%, 57% 100%, 44% 94%, 30% 100%, 17% 93%, 5% 100%, 0 55%);
+  background: var(--tex-tape, var(--tape)) center / 100% 100% no-repeat;
+  opacity: 0.86;
   pointer-events: none;
   z-index: 2;
+}
+.tape::after {
+  /* a little sheen where the tape catches the light */
+  content: '';
+  position: absolute;
+  inset: 3px 4px;
+  background: linear-gradient(100deg, transparent 20%, rgba(255, 255, 255, 0.16) 38%, transparent 52%);
 }
 .hand {
   font-family: var(--hand);
@@ -141,8 +164,13 @@ button {
   width: min(560px, 92vw);
   padding: 44px 48px 40px;
   transform: rotate(-1.2deg);
+  --edge: var(--edge-torn);
+  --stain-at: 62% 70%;
+  opacity: 0;
+  transition: opacity 0.7s ease;
 }
-.loader .page::before {
+.tex-ready .loader .page { opacity: 1; }
+.loader .page::after {
   content: '';
   position: absolute;
   left: 30px;
@@ -193,6 +221,7 @@ button {
   transform: scaleX(0) rotate(-1.5deg);
   transition: transform 0.45s ease;
 }
+.loader li.active { color: var(--ink); }
 .loader li.done { color: rgba(42, 33, 24, 0.45); }
 .loader li.done::after { transform: scaleX(1) rotate(-1.5deg); }
 .loader .bar {
@@ -202,7 +231,7 @@ button {
 }
 .loader .bar svg { width: 100%; height: 100%; overflow: visible; }
 .loader .bar .track { stroke: rgba(42, 33, 24, 0.18); }
-.loader .bar .fill { stroke: var(--ink); transition: stroke-dashoffset 0.3s ease; }
+.loader .bar .fill { stroke: var(--ink); }
 .loader .start {
   display: inline-flex;
   align-items: center;
@@ -250,7 +279,9 @@ button {
   text-align: left;
   opacity: 0;
   transition: opacity 1.2s ease 0.4s;
-  clip-path: polygon(0 3%, 6% 0, 14% 2%, 27% 0, 40% 3%, 55% 1%, 70% 3%, 84% 0, 100% 2%, 99% 30%, 100% 62%, 98% 100%, 85% 97%, 70% 100%, 52% 98%, 37% 100%, 22% 97%, 8% 100%, 1% 96%, 0 60%);
+  --edge: var(--edge-scrap);
+  --stain-at: 80% 10%;
+  --grain-at: 120px 40px;
 }
 .hud-on .title-scrap { opacity: 1; }
 .title-scrap strong {
@@ -290,17 +321,25 @@ button {
   color: var(--ink-soft);
   border-radius: 0 0 7px 7px;
   transform: translateY(-12px);
-  transition: transform 0.35s cubic-bezier(0.3, 1.4, 0.5, 1), background-color 0.3s;
-  background-color: #c7b78f;
+  transition: transform 0.35s cubic-bezier(0.3, 1.4, 0.5, 1);
+  background-color: #c4ae80;
+  background-image:
+    linear-gradient(rgba(40, 26, 10, 0.3), transparent 38%, transparent 80%, rgba(40, 26, 10, 0.14)),
+    var(--tex-paper-manila, none);
+  background-size: 100% 100%, 420px 420px;
+  background-position: 0 0, var(--tab-at, 0 0);
+  background-blend-mode: multiply, normal;
+  --shade: rgba(28, 18, 6, 0.16);
+  box-shadow: 0 5px 9px rgba(0, 0, 0, 0.5), 0 1px 1px rgba(0, 0, 0, 0.5), inset 0 -1px 0 rgba(255, 244, 214, 0.28), inset 0 0 14px rgba(96, 64, 24, 0.3), inset 0 0 0 200px var(--shade);
 }
-.tab:nth-child(2) { background-color: #cdbd97; }
-.tab:nth-child(3) { background-color: #c3b18a; }
-.tab:nth-child(4) { background-color: #cbbc95; }
-.tab:hover { transform: translateY(-6px); }
+.tab:nth-child(2) { --tab-at: 130px 60px; }
+.tab:nth-child(3) { --tab-at: 250px 190px; }
+.tab:nth-child(4) { --tab-at: 60px 300px; }
+.tab:hover { transform: translateY(-6px); --shade: rgba(28, 18, 6, 0.07); }
 .tab[aria-selected='true'] {
   transform: translateY(0);
   color: var(--ink);
-  background-color: var(--paper-light);
+  --shade: rgba(255, 246, 220, 0.05);
 }
 .tab[aria-selected='true']::after {
   content: '';
@@ -326,6 +365,7 @@ button {
   opacity: 0;
   transition: opacity 1.2s ease 0.8s;
 }
+.checklist { --stain-at: 10% 60%; --grain-at: 300px 120px; --light-a: 160deg; }
 .hud-on .checklist { opacity: 1; }
 .checklist .tape { top: -12px; left: 50%; margin-left: -46px; transform: rotate(-4deg); }
 .checklist h2 {
@@ -336,6 +376,32 @@ button {
   color: var(--red);
   transform: rotate(-2deg);
 }
+.light-row {
+  display: flex;
+  justify-content: space-between;
+  margin: 2px -4px 8px;
+}
+.light {
+  position: relative;
+  padding: 4px 6px 2px;
+  font-family: var(--hand);
+  font-size: 25px;
+  line-height: 1;
+  color: var(--ink-soft);
+}
+.light svg { position: absolute; left: -6px; top: -4px; width: calc(100% + 12px); height: calc(100% + 8px); overflow: visible; pointer-events: none; }
+.light .ring {
+  fill: none;
+  stroke: var(--red);
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-dasharray: 100;
+  stroke-dashoffset: 100;
+  transition: stroke-dashoffset 0.4s ease;
+}
+.light[aria-checked='true'] { color: var(--ink); }
+.light[aria-checked='true'] .ring { stroke-dashoffset: 0; }
+.light:hover span { text-decoration: underline wavy rgba(143, 42, 29, 0.45) 1px; text-underline-offset: 4px; }
 .check {
   display: flex;
   align-items: center;
@@ -463,42 +529,29 @@ button {
   position: absolute;
   left: 0;
   top: 0;
-  width: 34px;
-  height: 34px;
-  margin: -17px 0 0 -17px;
+  width: 44px;
+  height: 44px;
+  margin: -22px 0 0 -22px;
+  border-radius: 50%;
   pointer-events: auto;
-  transition: opacity 0.35s ease;
 }
-.hotspot svg { width: 100%; height: 100%; overflow: visible; }
-.hotspot .sig { fill: none; stroke: var(--bone); stroke-width: 1.4; }
-.hotspot .ring {
-  fill: none;
-  stroke: rgba(255, 90, 60, 0.9);
-  stroke-width: 1.2;
-  transform-origin: 17px 17px;
-  animation: pulse 2.6s ease-out infinite;
-}
-.hotspot .dot { fill: rgba(10, 8, 7, 0.55); }
-@keyframes pulse {
-  0% { transform: scale(0.6); opacity: 0.9; }
-  80%, 100% { transform: scale(1.6); opacity: 0; }
-}
+.hotspot:focus-visible { outline: 1.5px dashed rgba(233, 221, 192, 0.8); outline-offset: 2px; }
 .hotspot .label {
   position: absolute;
   left: 50%;
-  top: -30px;
+  bottom: calc(100% + 2px);
   transform: translateX(-50%) rotate(-2deg);
   white-space: nowrap;
   font-family: var(--hand);
-  font-size: 22px;
+  font-size: 24px;
   color: var(--bone);
-  text-shadow: 0 2px 6px #000;
+  text-shadow: 0 1px 2px #000, 0 2px 10px rgba(0, 0, 0, 0.9);
   opacity: 0;
   transition: opacity 0.2s ease;
   pointer-events: none;
 }
 .hotspot:hover .label, .hotspot:focus-visible .label { opacity: 1; }
-.hotspot.hidden { opacity: 0 !important; pointer-events: none; }
+.hotspot.hidden { visibility: hidden; pointer-events: none; }
 
 /* exploded-view labels */
 .xlabels { position: absolute; inset: 0; pointer-events: none; }
@@ -535,11 +588,12 @@ button {
   pointer-events: none;
   opacity: 0;
   transition: opacity 0.15s ease;
-  clip-path: polygon(10px 0, 100% 0, 100% 100%, 10px 100%, 0 50%);
+  --edge: polygon(10px 1px, 30% 0, 60% 1.5px, 100% 0, calc(100% - 1px) 50%, 100% 100%, 64% calc(100% - 1px), 30% 100%, 10px calc(100% - 1.5px), 0 50%);
+  --stain-at: 40% 40%;
   white-space: nowrap;
 }
 .tag.show { opacity: 1; }
-.tag::before {
+.tag::after {
   content: '';
   position: absolute;
   left: 7px;
@@ -573,16 +627,24 @@ button {
   right: 18px;
   bottom: 18px;
   width: min(430px, 92vw);
-  padding: 40px 34px 30px 40px;
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
   transform: translateX(calc(100% + 40px)) rotate(1.5deg);
+  --stain-at: 70% 85%;
+  --grain-at: 200px 0;
   transition: transform 0.55s cubic-bezier(0.2, 0.8, 0.2, 1);
   z-index: 20;
+}
+.lore .content {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 40px 34px 30px 40px;
   scrollbar-width: thin;
-  scrollbar-color: var(--paper-shade) transparent;
+  scrollbar-color: rgba(90, 64, 30, 0.4) transparent;
 }
 .lore.open { transform: translateX(0) rotate(0.6deg); }
-.lore::before {
+.lore::after {
   /* the red margin rule of a journal page */
   content: '';
   position: absolute;
@@ -799,6 +861,9 @@ button {
   font-size: 13px;
   line-height: 1.35;
   min-height: 42px;
+  --edge: var(--edge-scrap);
+  --stain-at: 20% 50%;
+  --grain-at: 90px 300px;
 }
 .deck .song .tape { top: -9px; left: 50%; margin-left: -34px; width: 68px; height: 18px; transform: rotate(3deg); }
 .deck .song b { font-weight: 400; font-family: var(--hand); font-size: 23px; line-height: 1; display: block; }
@@ -860,7 +925,7 @@ button {
   .deck .mobile-song { display: block; }
   .footer { left: 10px; right: 10px; bottom: calc(166px + var(--safe-b)); max-width: none; text-align: left; font-size: 9px; line-height: 1.35; }
   .hint { bottom: calc(218px + var(--safe-b)); font-size: 20px; }
-  .hotspot { width: 28px; height: 28px; margin: -14px 0 0 -14px; }
+  .hotspot { width: 40px; height: 40px; margin: -20px 0 0 -20px; }
   .title-scrap { max-width: calc(100% - 80px); }
   .lore {
     top: auto;
@@ -869,10 +934,10 @@ button {
     bottom: 0;
     width: auto;
     max-height: 72vh;
-    padding: 34px 22px 26px 34px;
     border-radius: 6px 6px 0 0;
     transform: translateY(calc(100% + 30px));
   }
+  .lore .content { padding: 34px 22px 26px 34px; }
   .lore.open { transform: translateY(0); }
   .lore h2 { font-size: 42px; }
   .lore p { font-size: 14.5px; }

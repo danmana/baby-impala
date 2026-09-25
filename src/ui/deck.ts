@@ -25,13 +25,14 @@ export class Deck {
   private led: HTMLElement;
   private lastTape = '';
 
-  constructor(host: HTMLElement, private player: MusicPlayer) {
+  constructor(host: HTMLElement, private player: MusicPlayer, private sfx: (name: 'tapeButton' | 'tapeEject' | 'tapeInsert') => void = () => undefined) {
     const btn = (icon: string, label: string, run: () => void) => {
       const b = h('button', { class: 'btn', type: 'button', 'aria-label': label, title: label });
       b.innerHTML = icon;
       b.addEventListener('click', () => {
         b.classList.add('pressed');
         setTimeout(() => b.classList.remove('pressed'), 140);
+        this.sfx('tapeButton');
         run();
       });
       return b;
@@ -62,7 +63,7 @@ export class Deck {
           h('span', { class: 'brand' }, 'Hunter 2000'), this.led),
         this.mobile,
       ),
-      h('div', { class: 'song paper' }, h('span', { class: 'tape' }), this.title, this.meta),
+      h('div', { class: 'song sheet' }, h('span', { class: 'tape' }), this.title, this.meta),
       spotHost,
     );
     host.append(this.el);
@@ -71,11 +72,13 @@ export class Deck {
   }
 
   private eject() {
+    this.sfx('tapeEject');
     this.cassette.classList.add('out');
     setTimeout(() => {
       this.player.switchTape();
       this.cassette.classList.remove('out');
-    }, 420);
+      this.sfx('tapeInsert');
+    }, 520);
   }
 
   setLit(on: boolean) {

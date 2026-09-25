@@ -145,10 +145,10 @@ def pump_shotgun(name, length=0.98):
     parts = []
     parts.append(rod(name + '_bar', (0.0, 0, 0.012), (length * 0.55, 0, 0.012), 0.011, 'gunmetal', 12))
     parts.append(rod(name + '_mag', (0.0, 0, -0.012), (length * 0.48, 0, -0.012), 0.010, 'gunmetal', 12))
-    parts.append(L.box(name + '_pump', (0.2, 0.034, 0.03), (length * 0.3, 0, -0.012), 'wood', bevel=0.006))
+    parts.append(L.box(name + '_pump', (0.2, 0.034, 0.03), (length * 0.3, 0, -0.012), 'wood_dark', bevel=0.006))
     parts.append(L.box(name + '_recv', (0.2, 0.034, 0.06), (-0.08, 0, 0.0), 'gunmetal', bevel=0.004))
     stock = L.extrude_outline(name + '_st', [(-0.17, 0.02), (-0.17, -0.03), (-0.26, -0.05), (-0.45, -0.1),
-                                             (-0.46, 0.03), (-0.2, 0.03)], 0.036, 'wood', bevel_w=0.008)
+                                             (-0.46, 0.03), (-0.2, 0.03)], 0.036, 'wood_dark', bevel_w=0.008)
     stock.data.transform(Matrix.Translation((0, 0, -0.018)))
     stock.data.transform(Matrix.Rotation(math.pi / 2, 4, 'X'))
     parts.append(stock)
@@ -162,10 +162,10 @@ def sawed_off(name):
     parts = []
     for dy in (-0.012, 0.012):
         parts.append(rod(name + f'_b{dy}', (0.0, dy, 0.0), (0.33, dy, 0.0), 0.012, 'gunmetal', 12))
-    parts.append(L.box(name + '_fe', (0.16, 0.034, 0.024), (0.1, 0, -0.018), 'wood', bevel=0.005))
+    parts.append(L.box(name + '_fe', (0.16, 0.034, 0.024), (0.1, 0, -0.018), 'wood_dark', bevel=0.005))
     parts.append(L.box(name + '_rc', (0.12, 0.04, 0.05), (-0.06, 0, -0.006), 'gunmetal', bevel=0.004))
     grip = L.extrude_outline(name + '_gr', [(-0.11, 0.02), (-0.12, -0.02), (-0.24, -0.08), (-0.28, -0.05),
-                                            (-0.16, 0.02)], 0.034, 'wood', bevel_w=0.006)
+                                            (-0.16, 0.02)], 0.034, 'wood_dark', bevel_w=0.006)
     grip.data.transform(Matrix.Translation((0, 0, -0.017)))
     grip.data.transform(Matrix.Rotation(math.pi / 2, 4, 'X'))
     parts.append(grip)
@@ -173,22 +173,54 @@ def sawed_off(name):
 
 
 def colt(name):
-    """The Colt: long octagonal barrel, fluted cylinder, engraved frame, ivory grip."""
+    """The Colt: a Paterson-style revolver like the show's prop: long dark
+    octagonal barrel, engraved nickel frame, dark cylinder, bone grip."""
     parts = []
-    bar = L.lathe(name + '_barrel', [(0.0, 0.0), (0.0, 0.009), (0.2, 0.0085), (0.2, 0.0)], segments=8,
-                  mat='gunmetal', axis='X', center=(0.03, 0, 0.012))
+    # octagonal barrel with two bands at the muzzle
+    bar = L.lathe(name + '_barrel', [(0.0, 0.0), (0.0, 0.0115), (0.215, 0.0105), (0.215, 0.0)], segments=8,
+                  mat='gunmetal', axis='X', center=(0.045, 0, 0.014))
     parts.append(bar)
-    parts.append(L.cylinder(name + '_cyl', 0.02, 0.05, (0.0, 0, 0.004), axis='X', segments=12, mat='gunmetal',
-                            bevel=0.003))
-    parts.append(L.box(name + '_frame', (0.06, 0.018, 0.035), (-0.02, 0, 0.0), 'nickel', bevel=0.004))
-    grip = L.extrude_outline(name + '_grip', [(-0.03, 0.0), (-0.05, -0.02), (-0.075, -0.1), (-0.05, -0.11),
-                                              (-0.02, -0.03), (-0.01, -0.01)], 0.026, 'ivory', bevel_w=0.006)
+    for k, x in enumerate((0.236, 0.247)):
+        parts.append(L.cylinder(name + f'_band{k}', 0.0118, 0.004, (x, 0, 0.014), axis='X', segments=16, mat='nickel'))
+    parts.append(L.box(name + '_sight', (0.006, 0.002, 0.005), (0.252, 0, 0.0265), 'nickel'))
+    # engraved barrel lug joining barrel and frame
+    lug = L.extrude_outline(name + '_lug', [(0.03, -0.006), (0.085, -0.006), (0.085, 0.026), (0.045, 0.026),
+                                            (0.03, 0.02)], 0.02, 'nickel', bevel_w=0.002)
+    lug.data.transform(Matrix.Translation((0, 0, -0.01)))
+    lug.data.transform(Matrix.Rotation(math.pi / 2, 4, 'X'))
+    parts.append(lug)
+    # smooth dark cylinder with chamber mouths
+    parts.append(L.cylinder(name + '_cyl', 0.0195, 0.046, (0.004, 0, 0.006), axis='X', segments=24, mat='gunmetal',
+                            bevel=0.002))
+    for i in range(5):
+        a = 2 * math.pi * i / 5
+        parts.append(L.cylinder(name + f'_ch{i}', 0.0045, 0.002, (0.0275, 0.0115 * math.cos(a), 0.006 + 0.0115 * math.sin(a)),
+                                axis='X', segments=8, mat='black'))
+    # nickel frame: recoil shield and the sloping top strap back to the hammer
+    frame = L.extrude_outline(name + '_frame', [(-0.02, -0.018), (-0.022, 0.018), (-0.045, 0.03), (-0.06, 0.026),
+                                                (-0.05, 0.004), (-0.035, -0.02)], 0.022, 'nickel', bevel_w=0.003)
+    frame.data.transform(Matrix.Translation((0, 0, -0.011)))
+    frame.data.transform(Matrix.Rotation(math.pi / 2, 4, 'X'))
+    parts.append(frame)
+    parts.append(L.cylinder(name + '_shield', 0.021, 0.006, (-0.021, 0, 0.006), axis='X', segments=24, mat='nickel',
+                            bevel=0.001))
+    # hammer spur
+    ham = L.extrude_outline(name + '_hammer', [(-0.045, 0.02), (-0.052, 0.036), (-0.066, 0.045), (-0.064, 0.038),
+                                               (-0.055, 0.03), (-0.05, 0.016)], 0.007, 'gunmetal', bevel_w=0.001)
+    ham.data.transform(Matrix.Translation((0, 0, -0.0035)))
+    ham.data.transform(Matrix.Rotation(math.pi / 2, 4, 'X'))
+    parts.append(ham)
+    # folding trigger (the Paterson hides it in the frame)
+    parts.append(L.box(name + '_trig', (0.004, 0.004, 0.012), (-0.03, 0, -0.022), 'nickel'))
+    # curved bone grip
+    grip = L.extrude_outline(name + '_grip', [(-0.035, -0.012), (-0.06, -0.012), (-0.085, -0.05), (-0.098, -0.095),
+                                              (-0.09, -0.112), (-0.066, -0.112), (-0.058, -0.09), (-0.05, -0.05),
+                                              (-0.032, -0.022)], 0.026, 'ivory', bevel_w=0.006)
     grip.data.transform(Matrix.Translation((0, 0, -0.013)))
     grip.data.transform(Matrix.Rotation(math.pi / 2, 4, 'X'))
     parts.append(grip)
-    parts.append(L.box(name + '_ham', (0.02, 0.008, 0.02), (-0.045, 0, 0.022), 'gunmetal'))
+    parts.append(L.box(name + '_butt', (0.034, 0.028, 0.006), (-0.078, 0, -0.114), 'nickel', bevel=0.002))
     return L.join(parts, name)
-
 
 def box_prop(name, size, mat, lid_mat=None, bevel=0.004):
     b = L.box(name, size, (0, 0, size[2] / 2), mat, bevel=bevel)

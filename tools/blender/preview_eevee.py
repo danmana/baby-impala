@@ -48,6 +48,14 @@ def render_all(out, prefix='b'):
     views = os.environ.get('VIEWS', 'side,f34,r34,front,rear,int').split(',')
     if os.environ.get('EXPLODE'):
         explode()
+    if os.environ.get('POSE') == 'trunk':
+        import math as _m
+        lid = bpy.data.objects.get('trunk_lid')
+        board = bpy.data.objects.get('false_floor')
+        if lid:
+            lid.rotation_euler.y = _m.radians(72)
+        if board:
+            board.rotation_euler.y = _m.radians(78)
     for n in os.environ.get('HIDE', '').split(','):
         o = bpy.data.objects.get(n)
         if o:
@@ -70,3 +78,7 @@ def render_all(out, prefix='b'):
         shot(f'{prefix}_back', (0.1, 0.1, 1.12), (-0.9, 0.3, 0.85), out, lens=22)
     if 'trunk' in views:
         shot(f'{prefix}_trunk', (-4.6, 1.2, 2.2), (-2.0, 0, 0.8), out, lens=40)
+    if 'traytop' in views:
+        cam = shot(f'{prefix}_traytop', (-2.08, 0, 6), (-2.08, 0, 0), out, ortho=1.7)
+    if 'board' in views:
+        shot(f'{prefix}_board', (-3.9, 0.0, 1.35), (-1.72, 0, 1.0), out, lens=38)

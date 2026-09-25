@@ -1,18 +1,44 @@
+import { fetchBytes, expectedBytes, type ProgressFn } from '../boot/assets';
+
 /**
- * Audio graph: master volume + mute, the synthesised V8 (crank, catch, idle
- * burble), the trunk-hinge creak, and a bus the tape deck plays into.
- * Everything is generated with Web Audio so there are no sound files to ship
- * besides the music.
+ * Audio: recorded V8 start / idle / shut-off (an AC Cobra 427, CC0 from
+ * BigSoundBank), the trunk latch, hinge creak and slam, the tape deck's
+ * mechanics, and a music bus with a little old-car-stereo colour.
+ * Samples are decoded during loading, so nothing waits when you press a button.
  */
+export const SFX = {
+  engineStart: 'audio/sfx/engine_start.mp3',
+  engineIdle: 'audio/sfx/engine_idle.wav',
+  engineStop: 'audio/sfx/engine_stop.mp3',
+  trunkLatch: 'audio/sfx/trunk_latch.mp3',
+  trunkCreak: 'audio/sfx/trunk_creak.mp3',
+  trunkClose: 'audio/sfx/trunk_close.mp3',
+  tapeInsert: 'audio/sfx/tape_insert.mp3',
+  tapeEject: 'audio/sfx/tape_eject.mp3',
+  tapeButton: 'audio/sfx/tape_button.mp3',
+} as const;
+export type SfxName = keyof typeof SFX;
+
 export class AudioEngine {
   ctx: AudioContext | null = null;
   master!: GainNode;
   music!: GainNode;
   sfx!: GainNode;
-  private idle: { stop: () => void; setRpm: (rpm: number, t?: number) => void } | null = null;
+  private buffers = new Map<SfxName, AudioBuffer>();
+  private idle: { src: AudioBufferSourceNode; gain: GainNode; lfo: OscillatorNode } | null = null;
   private volume = 0.8;
   private muted = false;
   onChange: (() => void) | null = null;
+
+  /** Download and decode every sample (no AudioContext needed yet). */
+  async preload(track: (key: string, expected: number) => ProgressFn) {
+    const decoder = new OfflineAudioContext(1, 1, 44100);
+    await Promise.all((Object.keys(SFX) as SfxName[]).map(async (name) => {
+      const path = SFX[name];
+      const buf = await fetchBytes(path, track(path, expectedBytes(path)));
+      this.buffers.set(name, await decoder.decodeAudioData(buf));
+    }));
+  }
 
   /** Must be called from a user gesture (the "Start the engine" button). */
   unlock() {
@@ -23,7 +49,7 @@ export class AudioEngine {
       this.master.connect(this.ctx.destination);
       this.music = this.ctx.createGain();
       this.sfx = this.ctx.createGain();
-      // the stereo sounds like it lives in a '67 dash: gentle low-mid warmth, rolled-off top
+      // the stereo sounds like it lives in a '67 dash: some low-mid warmth, rolled-off top
       const warm = this.ctx.createBiquadFilter();
       warm.type = 'peaking';
       warm.frequency.value = 220;
@@ -59,194 +85,78 @@ export class AudioEngine {
     this.onChange?.();
   }
 
-  private noiseBuffer(seconds = 2) {
-    const ctx = this.ctx!;
-    const b = ctx.createBuffer(1, ctx.sampleRate * seconds, ctx.sampleRate);
-    const d = b.getChannelData(0);
-    let last = 0;
-    for (let i = 0; i < d.length; i++) {
-      // brown-ish noise
-      last = (last + 0.02 * (Math.random() * 2 - 1)) / 1.02;
-      d[i] = last * 3.5;
-    }
-    return b;
+  /** One-shot sample. */
+  play(name: SfxName, opts: { gain?: number; rate?: number; when?: number } = {}) {
+    const buf = this.buffers.get(name);
+    if (!this.ctx || !buf) return null;
+    const src = this.ctx.createBufferSource();
+    src.buffer = buf;
+    src.playbackRate.value = opts.rate ?? 1;
+    const g = this.ctx.createGain();
+    g.gain.value = opts.gain ?? 1;
+    src.connect(g).connect(this.sfx);
+    src.start(this.ctx.currentTime + (opts.when ?? 0));
+    return { src, gain: g };
   }
 
-  /** Starter crank, the catch, a blip of throttle, then a lumpy idle that keeps running. */
-  startEngine(reduced = false) {
+  /** Starter, the catch, a couple of blips, then the idle takes over and keeps running. */
+  startEngine() {
     if (!this.ctx) return;
     const ctx = this.ctx;
-    const t0 = ctx.currentTime + 0.05;
-    const crankDur = reduced ? 0.5 : 1.1;
-
-    // --- starter motor: whirring motor + compression pulses
-    const starter = ctx.createOscillator();
-    starter.type = 'sawtooth';
-    starter.frequency.setValueAtTime(140, t0);
-    starter.frequency.linearRampToValueAtTime(190, t0 + crankDur);
-    const sf = ctx.createBiquadFilter();
-    sf.type = 'bandpass';
-    sf.frequency.value = 400;
-    sf.Q.value = 1.2;
-    const sg = ctx.createGain();
-    sg.gain.setValueAtTime(0, t0);
-    sg.gain.linearRampToValueAtTime(0.12, t0 + 0.05);
-    sg.gain.setValueAtTime(0.12, t0 + crankDur - 0.05);
-    sg.gain.linearRampToValueAtTime(0, t0 + crankDur + 0.08);
-    // compression strokes chop the starter sound ~11 times a second
-    const chop = ctx.createOscillator();
-    chop.type = 'square';
-    chop.frequency.setValueAtTime(9, t0);
-    chop.frequency.linearRampToValueAtTime(13, t0 + crankDur);
-    const chopDepth = ctx.createGain();
-    chopDepth.gain.value = 0.08;
-    chop.connect(chopDepth).connect(sg.gain);
-    starter.connect(sf).connect(sg).connect(this.sfx);
-    starter.start(t0);
-    chop.start(t0);
-    starter.stop(t0 + crankDur + 0.2);
-    chop.stop(t0 + crankDur + 0.2);
-
-    // --- the engine catches
-    this.idle?.stop();
-    this.idle = this.v8(t0 + crankDur - 0.05);
-    const tc = t0 + crankDur;
-    this.idle.setRpm(420, tc - 0.05);
-    this.idle.setRpm(reduced ? 1100 : 1900, tc + 0.35);
-    this.idle.setRpm(1250, tc + 0.9);
-    this.idle.setRpm(720, tc + 2.2);
+    this.stopIdle(0.05);
+    const start = this.play('engineStart', { gain: 1 });
+    const startDur = this.buffers.get('engineStart')?.duration ?? 5.6;
+    const handover = startDur - 0.75;
+    // idle loop fades in under the tail of the start-up
+    const buf = this.buffers.get('engineIdle');
+    if (!buf) return;
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    src.loop = true;
+    const gain = ctx.createGain();
+    const t0 = ctx.currentTime + handover;
+    gain.gain.setValueAtTime(0, ctx.currentTime);
+    gain.gain.setValueAtTime(0, t0);
+    gain.gain.linearRampToValueAtTime(0.85, t0 + 0.7);
+    // a slow drift in rpm so the loop never sounds like a loop
+    const lfo = ctx.createOscillator();
+    lfo.frequency.value = 0.13;
+    const depth = ctx.createGain();
+    depth.gain.value = 0.018;
+    lfo.connect(depth).connect(src.playbackRate);
+    src.connect(gain).connect(this.sfx);
+    src.start(t0);
+    lfo.start(t0);
+    this.idle = { src, gain, lfo };
+    void start;
   }
 
   stopEngine() {
-    this.idle?.stop();
+    if (!this.ctx || !this.idle) return;
+    this.play('engineStop', { gain: 0.9 });
+    this.stopIdle(0.35);
+  }
+
+  private stopIdle(fade: number) {
+    if (!this.ctx || !this.idle) return;
+    const t = this.ctx.currentTime;
+    const { src, gain, lfo } = this.idle;
+    gain.gain.cancelScheduledValues(t);
+    gain.gain.setValueAtTime(gain.gain.value, t);
+    gain.gain.linearRampToValueAtTime(0, t + fade);
+    src.stop(t + fade + 0.05);
+    lfo.stop(t + fade + 0.05);
     this.idle = null;
   }
 
   get engineRunning() { return this.idle !== null; }
 
-  /** V8 burble: a 4-stroke cycle wave rich in the uneven cross-plane harmonics. */
-  private v8(start: number) {
-    const ctx = this.ctx!;
-    const N = 48;
-    const real = new Float32Array(N);
-    const imag = new Float32Array(N);
-    // 8 firings per cycle with slightly uneven spacing and strength
-    const firings = [0, 0.118, 0.26, 0.372, 0.5, 0.63, 0.742, 0.87];
-    const strength = [1, 0.8, 0.95, 0.7, 1, 0.85, 0.9, 0.75];
-    for (let n = 1; n < N; n++) {
-      let re = 0, im = 0;
-      for (let k = 0; k < 8; k++) {
-        const ph = 2 * Math.PI * n * firings[k];
-        re += strength[k] * Math.cos(ph);
-        im += strength[k] * Math.sin(ph);
-      }
-      const roll = 1 / (1 + n * 0.08);
-      real[n] = re * roll;
-      imag[n] = im * roll;
-    }
-    const wave = ctx.createPeriodicWave(real, imag);
-    const osc = ctx.createOscillator();
-    osc.setPeriodicWave(wave);
-    const shaper = ctx.createWaveShaper();
-    const curve = new Float32Array(1024);
-    for (let i = 0; i < curve.length; i++) {
-      const x = (i / (curve.length - 1)) * 2 - 1;
-      curve[i] = Math.tanh(x * 2.2);
-    }
-    shaper.curve = curve;
-    const pre = ctx.createGain();
-    pre.gain.value = 0.35;
-    const lp = ctx.createBiquadFilter();
-    lp.type = 'lowpass';
-    lp.frequency.value = 520;
-    lp.Q.value = 0.8;
-    const body = ctx.createBiquadFilter();
-    body.type = 'peaking';
-    body.frequency.value = 95;
-    body.gain.value = 7;
-    // exhaust hiss riding on the pulses
-    const noise = ctx.createBufferSource();
-    noise.buffer = this.noiseBuffer(3);
-    noise.loop = true;
-    const nf = ctx.createBiquadFilter();
-    nf.type = 'bandpass';
-    nf.frequency.value = 260;
-    nf.Q.value = 0.7;
-    const ng = ctx.createGain();
-    ng.gain.value = 0.25;
-    const out = ctx.createGain();
-    out.gain.setValueAtTime(0, start);
-    out.gain.linearRampToValueAtTime(0.55, start + 0.12);
-    out.gain.setTargetAtTime(0.32, start + 3.0, 1.5);
-    osc.connect(pre).connect(shaper).connect(lp).connect(body).connect(out);
-    noise.connect(nf).connect(ng).connect(out);
-    // a slow wobble so the idle never sounds like a loop
-    const lfo = ctx.createOscillator();
-    lfo.frequency.value = 0.7;
-    const lfoG = ctx.createGain();
-    lfoG.gain.value = 0.25;
-    lfo.connect(lfoG).connect(osc.frequency);
-    out.connect(this.sfx);
-    osc.frequency.setValueAtTime(3, start);
-    osc.start(start);
-    noise.start(start);
-    lfo.start(start);
-    const setRpm = (rpm: number, t = ctx.currentTime) => {
-      const f = rpm / 60 / 2; // 4-stroke cycle frequency
-      osc.frequency.linearRampToValueAtTime(f, t);
-      lp.frequency.linearRampToValueAtTime(300 + rpm * 0.35, t);
-      ng.gain.linearRampToValueAtTime(0.15 + rpm / 6000, t);
-    };
-    return {
-      setRpm,
-      stop: () => {
-        const t = ctx.currentTime;
-        out.gain.cancelScheduledValues(t);
-        out.gain.setTargetAtTime(0, t, 0.25);
-        osc.stop(t + 1.5);
-        noise.stop(t + 1.5);
-        lfo.stop(t + 1.5);
-      },
-    };
+  trunkOpen() {
+    this.play('trunkLatch', { gain: 0.7 });
+    this.play('trunkCreak', { gain: 0.9, when: 0.18 });
   }
 
-  /** Old hinge: stick-slip squeal gliding down in pitch. */
-  creak(duration = 1.1) {
-    if (!this.ctx) return;
-    const ctx = this.ctx;
-    const t0 = ctx.currentTime + 0.02;
-    const osc = ctx.createOscillator();
-    osc.type = 'sawtooth';
-    osc.frequency.setValueAtTime(420, t0);
-    osc.frequency.linearRampToValueAtTime(260, t0 + duration * 0.6);
-    osc.frequency.linearRampToValueAtTime(330, t0 + duration);
-    const bp = ctx.createBiquadFilter();
-    bp.type = 'bandpass';
-    bp.frequency.value = 900;
-    bp.Q.value = 6;
-    const g = ctx.createGain();
-    g.gain.value = 0;
-    // stick-slip: irregular bursts of friction
-    let t = t0;
-    while (t < t0 + duration) {
-      const on = 0.012 + Math.random() * 0.03;
-      const amp = 0.06 + Math.random() * 0.1;
-      g.gain.setValueAtTime(amp, t);
-      g.gain.setValueAtTime(amp * 0.15, t + on);
-      t += on + Math.random() * 0.025;
-    }
-    g.gain.setTargetAtTime(0, t0 + duration, 0.05);
-    const thunk = ctx.createOscillator();
-    thunk.frequency.setValueAtTime(90, t0);
-    thunk.frequency.exponentialRampToValueAtTime(40, t0 + 0.15);
-    const tg = ctx.createGain();
-    tg.gain.setValueAtTime(0.3, t0);
-    tg.gain.exponentialRampToValueAtTime(0.001, t0 + 0.2);
-    osc.connect(bp).connect(g).connect(this.sfx);
-    thunk.connect(tg).connect(this.sfx);
-    osc.start(t0);
-    thunk.start(t0);
-    osc.stop(t0 + duration + 0.3);
-    thunk.stop(t0 + 0.3);
+  trunkClose() {
+    this.play('trunkClose', { gain: 0.8, when: 0.55 });
   }
 }

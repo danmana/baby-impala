@@ -30,17 +30,42 @@ function tex(canvas: HTMLCanvasElement, srgb = true) {
   return t;
 }
 
-export async function loadCar(
-  url: string,
-  mats: Materials,
-  onProgress: (f: number) => void,
-): Promise<CarParts> {
+/** Spotlight lens: a hot filament, a reflector glow and concentric Fresnel rings. */
+function drawLens(): HTMLCanvasElement {
+  const S = 256;
+  const c = document.createElement('canvas');
+  c.width = c.height = S;
+  const g = c.getContext('2d')!;
+  const cx = S / 2;
+  const bg = g.createRadialGradient(cx, cx, 0, cx, cx, cx);
+  bg.addColorStop(0, '#fff8ea');
+  bg.addColorStop(0.18, '#ffe7c0');
+  bg.addColorStop(0.55, '#b58a56');
+  bg.addColorStop(1, '#2a1c10');
+  g.fillStyle = bg;
+  g.fillRect(0, 0, S, S);
+  g.globalCompositeOperation = 'multiply';
+  for (let r = 10; r < cx; r += 7) {
+    g.strokeStyle = `rgba(90,70,50,${0.18 + 0.2 * (r / cx)})`;
+    g.lineWidth = 2;
+    g.beginPath();
+    g.arc(cx, cx, r, 0, Math.PI * 2);
+    g.stroke();
+  }
+  g.globalCompositeOperation = 'lighter';
+  const core = g.createRadialGradient(cx, cx, 0, cx, cx, 26);
+  core.addColorStop(0, 'rgba(255,255,255,1)');
+  core.addColorStop(1, 'rgba(255,240,210,0)');
+  g.fillStyle = core;
+  g.fillRect(0, 0, S, S);
+  return c;
+}
+
+export async function loadCar(buffer: ArrayBuffer, mats: Materials): Promise<CarParts> {
   const draco = new DRACOLoader(); // decoder files are bundled by Vite from three/examples
   const loader = new GLTFLoader();
   loader.setDRACOLoader(draco);
-  const gltf = await loader.loadAsync(url, (e) => {
-    if (e.lengthComputable && e.total > 0) onProgress(e.loaded / e.total);
-  });
+  const gltf = await loader.parseAsync(buffer, '');
   draco.dispose();
   await Promise.all([
     document.fonts.load('330px "League Gothic"'),
@@ -57,7 +82,12 @@ export async function loadCar(
   const trap = mats.get('trap_paint') as THREE.MeshStandardMaterial;
   trap.map = tex(drawDevilsTrap());
   trap.needsUpdate = true;
-  const trim = new THREE.MeshStandardMaterial({ map: tex(drawInitials()), roughness: 0.6, envMap: mats.env, envMapIntensity: 0.4 });
+  const trim = new THREE.MeshStandardMaterial({ map: tex(drawInitials()), roughness: 0.6, envMapIntensity: 0.4 });
+  const lens = mats.get('spot_lens') as THREE.MeshPhysicalMaterial;
+  const lensTex = tex(drawLens());
+  lens.emissiveMap = lensTex;
+  lens.emissive.set(0xffffff);
+  lens.needsUpdate = true;
   const dialTex = tex(drawDial());
   const dial = new THREE.MeshStandardMaterial({ map: dialTex, emissiveMap: dialTex, emissive: 0xffd6a0, emissiveIntensity: 0, roughness: 0.3 });
   mats.registerLamp('dial', dial);
@@ -74,6 +104,16 @@ export async function loadCar(
     else if (m.name.startsWith('tape_deck_dial')) m.material = dial;
     else if (OWN_MATS.has(key)) m.material = mats.get(key)!;
     else m.material = mats.upgrade(src, m.name);
+    // refractive glass (KHR_materials_transmission from the scanned bottles)
+    // makes three render the whole scene a second time; alpha glass reads the same
+    const phys = m.material as THREE.MeshPhysicalMaterial;
+    if (phys.isMeshPhysicalMaterial && phys.transmission > 0) {
+      phys.transmission = 0;
+      phys.transparent = true;
+      phys.opacity = 0.42;
+      phys.depthWrite = false;
+      phys.roughness = Math.min(phys.roughness, 0.08);
+    }
     const mat = m.material as THREE.Material;
     const glass = mat.transparent;
     m.castShadow = !glass;
@@ -86,7 +126,7 @@ export async function loadCar(
   const texO = tex(drawOhio());
   gltf.scene.updateMatrixWorld(true);
   const mkPlate = (anchor: string) => {
-    const p = new Plate(texK, texO, mats.env);
+    const p = new Plate(texK, texO, null);
     const holder = new THREE.Group();
     holder.name = `${anchor}_holder`;
     const a = byName.get(anchor);

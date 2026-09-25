@@ -15,6 +15,7 @@ import bmesh
 from mathutils import Vector, Matrix
 import lib as L
 import props as P
+import phprops as PH
 
 HINGE_X = -1.665
 BOARD_Z = 0.612          # board centre plane (closed)
@@ -100,14 +101,48 @@ def lid_inner():
     return o
 
 
+def flat(o):
+    """Orient mesh data so its longest extent runs along X and its thinnest
+    along Z (lying flat / pressed flat against the felt)."""
+    size = PH.size_of(o)
+    order = sorted(range(3), key=lambda i: -size[i])  # long, mid, thin
+    axes = [Vector((1, 0, 0)), Vector((0, 1, 0)), Vector((0, 0, 1))]
+    M = Matrix((axes[order[0]], axes[order[1]], axes[order[2]])).to_4x4()
+    if M.determinant() < 0:
+        M = Matrix((axes[order[0]], -axes[order[1]], axes[order[2]])).to_4x4()
+    o.data.transform(M)
+    return o
+
+
+def lay(key, obj, x, y, rz=0.0, lift=0.0, flat_it=True):
+    obj.name = f'item_{key}'
+    obj.data.name = f'item_{key}'
+    if flat_it:
+        flat(obj)
+    PH.texturize(obj)
+    place_on_tray(obj, x, y, rz, lift)
+    return obj
+
+
+def mount(key, obj, u, h, theta=0.0, flat_it=True):
+    obj.name = f'item_{key}'
+    obj.data.name = f'item_{key}'
+    if flat_it:
+        flat(obj)
+    PH.texturize(obj)
+    place_on_board(obj, u, h, theta)
+    return obj
+
+
 def build(fa=None, ra=None):
     L.set_collection('Baby')
     lid_inner()
 
     # bulkhead between the rear seat back and the trunk
-    bh = L.box('trunk_bulkhead', (0.02, 1.62, 0.66), (-1.62, 0, 0.40 + 0.33), 'carpet')
+    bh = L.box('trunk_bulkhead', (0.02, 1.62, 0.66), (-1.62, 0, 0.40 + 0.33), 'felt')
+    PH.texturize(bh)
 
-    # tray: bottom follows the sloped floor, grey carpet, a few dividers
+    # tray: bottom follows the sloped floor, grey carpet, low dividers
     x0, x1 = TRAY_X
     sec = []
     for x in (x0, x1):
@@ -115,62 +150,62 @@ def build(fa=None, ra=None):
         sec.append([Vector((x, -TRAY_Y, z)), Vector((x, TRAY_Y, z))])
     tray = L.loft('trunk_tray', sec, mat='carpet_gray', flip=True)
     parts = [tray]
-    for yy in (-0.26, 0.26):
-        parts.append(L.box('tray_div', (x1 - x0, 0.02, 0.07), ((x0 + x1) / 2, yy, floor_z((x0 + x1) / 2) + 0.04),
-                           'carpet_gray', bevel=0.004))
-    parts.append(L.box('tray_div', (0.02, 2 * TRAY_Y, 0.07), (-2.06, 0, floor_z(-2.06) + 0.04), 'carpet_gray',
-                       bevel=0.004))
+    for yy in (-0.27, 0.27):
+        parts.append(L.box('tray_div', (0.37, 0.02, 0.07), (-1.89, yy, floor_z(-1.89) + 0.04), 'carpet_gray', bevel=0.004))
+    parts.append(L.box('tray_div', (0.02, 2 * TRAY_Y, 0.06), (-2.085, 0, floor_z(-2.085) + 0.035), 'carpet_gray', bevel=0.004))
     for yy in (-TRAY_Y, TRAY_Y):
-        parts.append(L.box('tray_wall', (x1 - x0, 0.02, 0.2), ((x0 + x1) / 2, yy, floor_z((x0 + x1) / 2) + 0.1),
-                           'carpet_gray'))
-    L.join(parts, 'trunk_tray')
+        parts.append(L.box('tray_wall', (x1 - x0, 0.02, 0.2), ((x0 + x1) / 2, yy, floor_z((x0 + x1) / 2) + 0.1), 'carpet_gray'))
+    tray = L.join(parts, 'trunk_tray')
+    PH.texturize(tray)
 
-    # ---------------------------------------------------------------- tray gear
     items = []
+    # ---------------------------------------------------------------- long guns across the rear
+    rifle = PH.import_ph('bolt_action_rifle_7_62', keep=['bolt_action_rifle_7_62', 'bolt_action_rifle_7_62_bolt_a',
+                                                        'bolt_action_rifle_7_62_trigger', 'bolt_action_rifle_7_62_wrap'], tex_size=1024)
+    items.append(lay('rifle', rifle, -2.36, 0.0, 90))
+    items.append(lay('shotgun', P.pump_shotgun('p'), -2.19, -0.07, 90))
+    items.append(lay('bandolier', P.bandolier('p'), -2.17, -0.20, 94, lift=0.035, flat_it=False))
+    items.append(lay('sawed_off', P.sawed_off('p'), -2.19, 0.52, 93))
+    items.append(lay('emf', P.emf('p'), -2.265, 0.44, 88, flat_it=False))
+    items.append(lay('lock_picks', P.lockpicks('p'), -2.28, -0.62, 90, flat_it=False))
 
-    def tray(key, obj, x, y, rot=0.0, lift=0.0):
-        obj.name = f'item_{key}'
-        place_on_tray(obj, x, y, rot, lift)
-        items.append(obj)
+    # ---------------------------------------------------------------- front-left: ammo and salt
+    ammo = PH.import_ph('ammo_box')
+    items.append(lay('ammo_can', ammo, -1.775, 0.49, 0, flat_it=False))
+    ammo2 = PH.import_ph('ammo_box')
+    ammo2.data.transform(Matrix.Scale(0.92, 4))
+    items.append(lay('ammo_can_2', ammo2, -1.885, 0.49, 0, flat_it=False))
+    salt = PH.import_ph('russian_food_cans_01', keep=['russian_food_cans_01_salt_box'])
+    salt.data.transform(Matrix.Scale(1.6, 4))
+    items.append(lay('salt', salt, -2.02, 0.34, 20, flat_it=False))
+    items.append(lay('rock_salt', P.shells_box('p', (5, 4), 'shell_red'), -2.00, 0.55, 0, flat_it=False))
 
-    tray('shotgun', P.pump_shotgun('p'), -2.08, 0.02, 68)
-    tray('sawed_off', P.sawed_off('p'), -2.36, -0.44, 88)
-    tray('ammo_can', P.ammo_can('p'), -1.80, 0.50, 90)
-    tray('ammo_can_2', P.ammo_can('p', (0.24, 0.12, 0.15)), -1.79, -0.53, 90)
-    tray('rock_salt', P.shells_box('p', (5, 4), 'shell_red'), -2.28, 0.44, 0)
-    tray('silver_bullets', P.bullets_box('p'), -2.40, 0.15, 10)
-    tray('bandolier', P.bandolier('p'), -1.95, -0.28, 84)
-    tray('holy_water', P.bottle('p', 0.15, 0.04, 0.012, 'bottle_glass', 'gunmetal', flat=True), -1.78, 0.18, 20)
-    tray('holy_water_2', P.bottle('p', 0.13, 0.035, 0.011, 'bottle_glass', 'brass', flat=True), -1.76, 0.07, -15)
-    tray('dead_mans_blood', P.jar('p', 0.09, 0.03, 'blood_glass', 'brass'), -1.74, -0.06)
-    tray('salt', P.can('p', 0.12, 0.045, 'salt_blue', 'steel'), -1.76, -0.30)
-    tray('holy_oil', P.jar('p', 0.08, 0.035, 'oil_glass', 'brass'), -1.85, -0.37)
-    tray('flashlight', P.flashlight('p'), -2.42, -0.12, 92)
-    tray('flashlight_2', P.flashlight('p', 0.24, 0.018), -2.38, 0.02, 80)
-    tray('fake_ids', P.badge_wallet('p'), -2.30, 0.26, 12)
-    tray('fake_ids_2', P.badge_wallet('p'), -2.27, 0.30, -8, lift=0.013)
-    tray('journal', P.journal('p'), -2.18, 0.56, 6)
-    tray('emf', P.emf('p'), -2.08, -0.55, 80)
-    tray('lighter_fluid', P.lighter_fluid('p'), -1.86, -0.12, 0)
-    tray('crowbar', P.crowbar('p'), -2.45, 0.30, 92)
-    tray('rope', P.rope('p'), -1.95, 0.30)
-    tray('chain', P.chain('p'), -2.19, -0.14, 90)
-    tray('duct_tape', P.duct_tape('p'), -2.00, -0.52)
-    tray('hex_bag', P.hex_bag('p'), -1.92, 0.54)
-    tray('machete', P.machete('p'), -2.13, 0.40, 96)
-    tray('lock_picks', P.lockpicks('p'), -2.36, -0.24, 5)
-    tray('flares', P.flare('p'), -2.22, 0.08, 95)
-    # the Colt in its wooden case
+    # ---------------------------------------------------------------- centre: the Colt, the journal, IDs
     case = P.box_prop('colt_case', (0.40, 0.17, 0.045), 'wood_dark')
     felt = L.box('colt_felt', (0.38, 0.15, 0.004), (0, 0, 0.046), 'felt_red')
     gun = P.colt('colt_gun')
-    gun.data.transform(Matrix.Translation((0.03, 0.02, 0.066)))
-    rounds = []
-    for i in range(6):
-        rounds.append(L.cylinder('colt_round', 0.005, 0.028, (-0.14 + 0.02 * i, -0.05, 0.052), axis='Y',
-                                 segments=8, mat='brass'))
+    # lay it on its side in the case (the profile faces up)
+    gun.data.transform(Matrix.Rotation(-math.pi / 2, 4, 'X'))
+    gun.data.transform(Matrix.Translation((-0.05, 0.035, 0.062)))
+    rounds = [L.cylinder('colt_round', 0.0055, 0.03, (-0.15 + 0.022 * i, -0.052, 0.052), axis='Y', segments=10, mat='silver')
+              for i in range(13)]
     case = L.join([case, felt, gun] + rounds, 'colt')
-    tray('colt', case, -2.26, -0.03, 90)
+    items.append(lay('colt', case, -1.985, -0.03, 90, flat_it=False))
+    journal = PH.import_ph('binder_notebook', keep=['binder_notebook_closed'], tex_size=1024)
+    items.append(lay('journal', journal, -1.80, 0.15, 84, flat_it=False))
+    items.append(lay('silver_bullets', P.bullets_box('p'), -1.785, -0.035, 4, flat_it=False))
+    items.append(lay('fake_ids', P.badge_wallet('p'), -1.795, -0.14, 12, flat_it=False))
+    items.append(lay('fake_ids_2', P.badge_wallet('p'), -1.79, -0.15, -9, lift=0.013, flat_it=False))
+    items.append(lay('duct_tape', P.duct_tape('p'), -1.80, -0.225, 0, flat_it=False))
+
+    # ---------------------------------------------------------------- front-right: light, water, jars
+    torch = PH.import_ph('vintage_flashlight', decimate=0.6)
+    items.append(lay('flashlight', torch, -1.80, -0.49, 0, flat_it=False))
+    bottle = PH.import_ph('wine_bottles_01', keep=['wine_bottles_01_alsace'], decimate=0.5)
+    items.append(lay('holy_water', bottle, -1.955, -0.47, 90))
+    items.append(lay('dead_mans_blood', P.jar('p', 0.09, 0.03, 'blood_glass', 'brass'), -2.04, -0.63, flat_it=False))
+    items.append(lay('holy_oil', P.jar('p', 0.08, 0.035, 'oil_glass', 'brass'), -2.04, -0.31, flat_it=False))
+    items.append(lay('lighter_fluid', P.lighter_fluid('p'), -2.035, -0.47, 90, flat_it=False))
 
     # ---------------------------------------------------------------- the false floor
     board = L.box('false_floor', (BOARD_LEN, BOARD_W, BOARD_T), (HINGE_X - BOARD_LEN / 2, 0, BOARD_Z),
@@ -178,42 +213,48 @@ def build(fa=None, ra=None):
     felt = L.box('false_floor_felt', (BOARD_LEN - 0.02, BOARD_W - 0.02, 0.002),
                  (HINGE_X - BOARD_LEN / 2, 0, BOARD_Z - BOARD_T / 2 - 0.0008), 'felt')
     board = L.join([board, felt], 'false_floor')
+    PH.texturize(board)
     L.set_origin(board, (HINGE_X, 0, BOARD_Z))
 
     mounted = []
-
-    def mount(key, obj, u, h, theta=0.0):
-        obj.name = f'item_{key}'
-        place_on_board(obj, u, h, theta)
-        mounted.append(obj)
-
-    mount('arrow', P.arrow('p'), 0.0, 0.72, 0)
-    mount('bowie', P.knife('p', 0.36, 0.62, 0.04, 'leather'), -0.26, 0.60, -8)
-    mount('sage', P.sage('p'), -0.52, 0.56, 28)
-    mount('stake', P.stake('p', 0.32), -0.60, 0.26, 96)
-    mount('hatchet', P.hatchet('p'), -0.40, 0.25, 84)
-    mount('brass_knuckles', P.knuckles('p'), -0.20, 0.40, 0)
-    mount('silver_knife', P.knife('p', 0.28, 0.6, 0.03, 'wood', blade_mat='silver'), -0.02, 0.52, 2)
-    mount('sheath_knife', P.sheath_knife('p'), -0.02, 0.24, 92)
-    mount('ruby_knife', P.ruby_knife('p'), 0.17, 0.32, 88)
-    mount('angel_blade', P.angel_blade('p'), 0.22, 0.62, 4)
-    mount('cross', P.cross('p'), 0.42, 0.44, 90)
-    mount('holster', P.holster('p'), 0.30, 0.10, 90)
-    mount('pouch', P.pouch('p'), 0.55, 0.14, 0)
-    mount('dreamcatcher', P.dreamcatcher('p'), 0.62, 0.52, 0)
-    mount('rosary', P.rosary('p'), 0.64, 0.30, 0)
-    mount('stake_2', P.stake('p', 0.26), 0.08, 0.10, 4)
+    machete = PH.import_ph('machete', tex_size=1024)
+    mounted.append(mount('machete', machete, 0.02, 0.70, 0))
+    mounted.append(mount('arrow', P.arrow('p'), -0.02, 0.61, 2, flat_it=False))
+    hatchet = PH.import_ph('hatchet')
+    mounted.append(mount('hatchet', hatchet, -0.56, 0.33, 90))
+    dagger = PH.import_ph('ornate_medieval_dagger', keep=['ornate_medieval_dagger'])
+    mounted.append(mount('ruby_knife', dagger, -0.36, 0.30, 90))
+    knife = PH.import_ph('fish_knife')
+    mounted.append(mount('silver_knife', knife, -0.24, 0.40, 88))
+    mounted.append(mount('bowie', P.knife('p', 0.36, 0.62, 0.04, 'leather'), 0.06, 0.44, 92))
+    mounted.append(mount('angel_blade', P.angel_blade('p'), -0.12, 0.47, 90))
+    mounted.append(mount('stake', P.stake('p', 0.32), -0.02, 0.19, 88))
+    mounted.append(mount('stake_2', P.stake('p', 0.28), 0.04, 0.17, 93))
+    mounted.append(mount('cross', P.cross('p'), 0.21, 0.36, 90, flat_it=False))
+    crowbar = PH.import_ph('crowbar_01')
+    mounted.append(mount('crowbar', crowbar, 0.62, 0.36, 90))
+    pistol = PH.import_ph('service_pistol', keep=['service_pistol_pistol_a', 'service_pistol_slide_a', 'service_pistol_hammer_a',
+                                                  'service_pistol_trigger_a'], decimate=0.45)
+    mounted.append(mount('pistol', pistol, 0.40, 0.16, 0))
+    mounted.append(mount('sage', P.sage('p'), -0.52, 0.62, 25, flat_it=False))
+    mounted.append(mount('brass_knuckles', P.knuckles('p'), 0.42, 0.50, 0, flat_it=False))
+    mounted.append(mount('dreamcatcher', P.dreamcatcher('p'), 0.44, 0.63, 0, flat_it=False))
+    mounted.append(mount('rosary', P.rosary('p'), 0.18, 0.12, 0, flat_it=False))
+    mounted.append(mount('hex_bag', P.hex_bag('p'), -0.52, 0.10, 0, flat_it=False))
+    mounted.append(mount('flares', P.flare('p'), -0.30, 0.08, 0))
+    mounted.append(mount('chain', P.chain('p', 10), -0.14, 0.08, 0, flat_it=False))
     # nylon straps holding things to the felt
     straps = []
-    for (u, h, w, th) in ((0.0, 0.72, 0.03, 90), (-0.26, 0.6, 0.05, 82), (-0.4, 0.28, 0.04, -6), (0.17, 0.3, 0.04, 0),
-                          (0.42, 0.44, 0.05, 0), (-0.6, 0.26, 0.04, 6), (-0.02, 0.24, 0.05, 2)):
-        s = L.box('strap', (w, 0.024, 0.006), (0, 0, 0.003), 'strap')
-        place_on_board(s, u, h, th)
-        s.location.z -= 0.012
-        L.bake_transform(s)
-        straps.append(s)
-    L.join(straps, 'false_floor_straps')
-    for o in mounted + [bpy.data.objects['false_floor_straps']]:
+    for (u, hh, w, th) in ((0.02, 0.70, 0.03, 90), (-0.56, 0.33, 0.05, 0), (-0.36, 0.30, 0.04, 0), (0.62, 0.36, 0.04, 0),
+                           (-0.02, 0.18, 0.05, 0), (0.21, 0.36, 0.05, 0), (0.40, 0.16, 0.05, 90), (-0.24, 0.40, 0.04, 0)):
+        st = L.box('strap', (w, 0.024, 0.006), (0, 0, 0.003), 'strap')
+        place_on_board(st, u, hh, th)
+        st.location.z -= 0.014
+        L.bake_transform(st)
+        straps.append(st)
+    straps = L.join(straps, 'false_floor_straps')
+    PH.texturize(straps)
+    for o in mounted + [straps]:
         o.parent = board
         o.matrix_parent_inverse = board.matrix_world.inverted()
     return items, mounted
