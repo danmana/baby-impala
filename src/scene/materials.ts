@@ -45,7 +45,8 @@ export class Materials {
     add('strap', std({ color: 0x0b0b0b, roughness: 0.8 }));
     add('twine', std({ color: 0x9a8360, roughness: 0.9 }));
     add('sage', std({ color: 0x78806c, roughness: 0.95 }));
-    add('feather', std({ color: 0xd6d0c4, roughness: 0.8, side: THREE.DoubleSide }));
+    add('feather', std({ color: 0x9a8a74, roughness: 0.85, side: THREE.DoubleSide }));
+    add('feather_dark', std({ color: 0x2c231c, roughness: 0.85, side: THREE.DoubleSide }));
     add('bottle_glass', phy({ color: 0x9fb4b8, roughness: 0.05, transmission: 0, transparent: true, opacity: 0.55, envMapIntensity: 1.2 }));
     add('blood_glass', phy({ color: 0x3a0404, roughness: 0.1, transparent: true, opacity: 0.9 }));
     add('oil_glass', phy({ color: 0x8a6412, roughness: 0.1, transparent: true, opacity: 0.8 }));

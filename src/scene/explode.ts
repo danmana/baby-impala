@@ -46,6 +46,7 @@ const ease = (t: number) => (t < 0.5 ? 16 * t ** 5 : 1 - Math.pow(-2 * t + 2, 5)
 interface Live {
   def: PartDef;
   objs: THREE.Object3D[];
+  meshes: THREE.Mesh[];
   base: THREE.Vector3[];
   centre: THREE.Vector3;
   offset: THREE.Vector3;
@@ -80,7 +81,9 @@ export class Exploder {
       const line = new THREE.Line(geo, lineMat.clone());
       line.computeLineDistances();
       this.lines.add(line);
-      this.live.push({ def, objs, base: objs.map((o) => o.position.clone()), centre, offset, line });
+      const meshes: THREE.Mesh[] = [];
+      objs.forEach((o) => o.traverse((c) => (c as THREE.Mesh).isMesh && meshes.push(c as THREE.Mesh)));
+      this.live.push({ def, objs, meshes, base: objs.map((o) => o.position.clone()), centre, offset, line });
       if (!def.noLabel) {
         const lo = new THREE.Vector3(...(def.labelOffset ?? [0, 0.18, 0]));
         this.labels.push({ text: def.label, pos: centre.clone().add(offset).add(lo), alpha: 0 });
@@ -106,7 +109,9 @@ export class Exploder {
       });
       const m = L.line.material as THREE.LineDashedMaterial;
       m.opacity = Math.min(1, local * 2.5) * 0.75;
-      L.line.visible = local > 0.01;
+      // parts taken off the car (the spotlights, when switched off) get no line or label
+      const fitted = L.meshes.some((o) => o.layers.isEnabled(0));
+      L.line.visible = local > 0.01 && fitted;
       const end = L.centre.clone().addScaledVector(L.offset, k);
       const pos = L.line.geometry.getAttribute('position') as THREE.BufferAttribute;
       pos.setXYZ(1, end.x, end.y, end.z);
@@ -114,7 +119,7 @@ export class Exploder {
       L.line.computeLineDistances();
       if (!L.def.noLabel) {
         const lab = this.labels[li++];
-        lab.alpha = THREE.MathUtils.clamp((local - 0.7) / 0.3, 0, 1);
+        lab.alpha = fitted ? THREE.MathUtils.clamp((local - 0.7) / 0.3, 0, 1) : 0;
       }
     }
   }

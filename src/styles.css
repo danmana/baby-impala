@@ -488,8 +488,10 @@ button {
 .check[aria-checked='true'] .tick { stroke-dashoffset: 0; }
 .check:hover span { text-decoration: underline wavy rgba(143, 42, 29, 0.45) 1px; text-underline-offset: 4px; }
 .stamps {
+  position: relative;
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 8px 10px;
   margin-top: 12px;
 }
@@ -508,6 +510,42 @@ button {
 .stamp:nth-child(2) { transform: rotate(1.5deg); }
 .stamp:hover { opacity: 1; transform: rotate(-2deg) scale(1.05); }
 .stamp:active { transform: rotate(-2deg) scale(0.95); }
+/* the plate she's wearing, stamped like a little licence plate with its two bolts */
+.stamp.plate {
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 96px;
+  padding: 4px 16px 2px;
+  border-radius: 7px;
+  line-height: 1;
+}
+.stamp.plate .st {
+  font-family: var(--type);
+  font-size: 9px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  margin: 0 0 2px 0.24em;
+}
+.stamp.plate .num { font-size: 23px; letter-spacing: 0.07em; white-space: nowrap; }
+.stamp.plate::before, .stamp.plate::after {
+  content: '';
+  position: absolute;
+  top: calc(50% - 3px);
+  width: 3px;
+  height: 3px;
+  border: 1.5px solid currentColor;
+  border-radius: 50%;
+  opacity: 0.8;
+}
+.stamp.plate::before { left: 4px; }
+.stamp.plate::after { right: 4px; }
+.stamp.plate.flip { animation: plate-flip 0.4s ease-in-out; }
+@keyframes plate-flip {
+  50% { transform: rotate(-2deg) scaleY(0.05); }
+}
+.plate-tip { top: -8px; }
 
 /* volume row on the checklist */
 .volume {
@@ -1026,7 +1064,8 @@ button {
   .lore.open { transform: translateY(0); }
   .lore h2 { font-size: 42px; }
   .lore p { font-size: 14.5px; }
-  .trunk-note { bottom: calc(150px + var(--safe-b)); font-size: 22px; }
+  /* above the footer, which sits over the deck on a phone */
+  .trunk-note { bottom: calc(204px + var(--safe-b)); font-size: 22px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

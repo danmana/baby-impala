@@ -23,6 +23,7 @@ PH_MODELS = [
     'ammo_box', 'binder_notebook', 'bolt_action_rifle_7_62', 'can_rusted', 'crowbar_01', 'fish_knife',
     'hatchet', 'machete', 'medical_tape', 'ornate_medieval_dagger', 'russian_food_cans_01',
     'service_pistol', 'small_oil_can_01', 'vintage_flashlight', 'wine_bottles_01', 'wooden_axe_02',
+    'cross_pein_hammer', 'vintage_lighter',
 ]
 # ground and motel surfaces (2k: diffuse, normal, roughness, AO)
 PH_TEXTURES = [
@@ -30,6 +31,8 @@ PH_TEXTURES = [
     'painted_plaster_wall', 'rough_pine_door', 'rusty_corrugated_iron', 'rusty_painted_metal',
     'weathered_peeling_timber',
 ]
+# wood grain for the hand-made props (1k: diffuse, normal, roughness)
+PH_PROP_TEXTURES = ['fine_grained_wood', 'rough_wood', 'american_walnut_veneer']
 # lighting presets (public/hdri/moon|sunset|day.hdr are these at 1k)
 PH_HDRIS = ['narrow_moonlit_road', 'goegap_road', 'mall_parking_lot']
 # prop materials and the paper for the journal UI
@@ -71,6 +74,15 @@ def fetch_textures():
             save(os.path.join(ROOT, 'polyhaven', 'tex', f'{a}_{kind}_2k.jpg'), get(src))
 
 
+def fetch_prop_textures():
+    for a in PH_PROP_TEXTURES:
+        print(a)
+        f = ph_files(a)
+        for kind, key in (('diff', 'Diffuse'), ('nor_gl', 'nor_gl'), ('rough', 'Rough')):
+            src = f[key]['1k']['jpg']['url']
+            save(os.path.join(ROOT, 'polyhaven', 'tex', f'{a}_{kind}_1k.jpg'), get(src))
+
+
 def fetch_hdris():
     for a in PH_HDRIS:
         print(a)
@@ -87,6 +99,7 @@ def fetch_ambientcg():
 
 
 if __name__ == '__main__':
-    jobs = {'models': fetch_models, 'textures': fetch_textures, 'hdris': fetch_hdris, 'ambientcg': fetch_ambientcg}
+    jobs = {'models': fetch_models, 'textures': fetch_textures, 'props': fetch_prop_textures, 'hdris': fetch_hdris,
+            'ambientcg': fetch_ambientcg}
     for name in (sys.argv[1:] or jobs):
         jobs[name]()

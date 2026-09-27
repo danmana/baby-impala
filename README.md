@@ -14,7 +14,9 @@ npm run dev        # http://localhost:5177
 npm run build      # production build into dist/
 ```
 
-Handy URL flags while developing: `?autostart` skips the start screen, `?nointro` skips the reveal, `?light=moon|sunset|day` picks the lighting, `?quality=low|medium|high` forces a quality tier. Viewers can also pick Auto / Low / Med / High in the checklist (remembered per browser), with a live FPS readout next to it.
+Every file in `public/` is fetched with a content hash in its URL (`?v=…`, from the `virtual:asset-sizes` plugin), so a rebuilt model or sound never comes out of a stale browser cache.
+
+Handy URL flags while developing: `?autostart` skips the start screen, `?nointro` skips the reveal, `?light=moon|sunset|day` picks the lighting, `?quality=low|medium|high` forces a quality tier. Viewers can also pick Auto / Low / Med / High in the checklist (remembered per browser), with a live FPS readout next to it. Auto steps down when it can't hold ~30 fps and back up when it holds ~55.
 
 ## What's in here
 
@@ -30,6 +32,7 @@ Handy URL flags while developing: `?autostart` skips the start screen, `?nointro
 | `assets-src/sketchfab/` | The unmodified base model (glTF + textures) the Blender build starts from |
 | `assets-src/sounds/`, `assets-src/props_tex/`, `assets-src/ui/` | Original sound files, baked prop textures and the source paper scan |
 | `tools/fetch_assets.py` | Downloads the CC0 Poly Haven and ambientCG sources (props, surfaces, HDRIs) into `assets-src/`; they're not kept in git |
+| `tools/prop_textures.py` | Builds the wood and pegboard texture sets in `assets-src/props_tex/` from those scans (`.venv/bin/python tools/prop_textures.py`) |
 | `docs/research.md` | Research notes: trivia with episode references, trunk inventory, music |
 
 ### Rebuilding the car
@@ -44,7 +47,7 @@ The Blender build scales and orients the base model, then turns it into Baby:
 - cuts the one-piece shell into hood, trunk lid and four doors along the real shut lines so they can open and explode apart
 - swaps the mag wheels for her polished 15" dished wheels with the ring of holes
 - adds the two A-pillar spotlights and the second exhaust pipe; removes the rear script and the passenger mirror
-- builds the trunk: the false floor that stands up like a pegboard with the weapons strapped to its felt, the grey tray of gear, and the painted Devil's Trap on the underside of the lid. Most of the gear is photoscanned Poly Haven props (run `python3 tools/fetch_assets.py` first); the rest is modelled and textured in the build
+- builds the trunk: the false floor whose underside is a pegboard (gear on pegs set in real holes and on spring clips fitted to each piece, found by ray casting, with contact shadows baked into the board by Cycles; `BABY_NO_BAKE=1` skips the bake), the grey tray of gear, and the painted Devil's Trap on the underside of the lid. Most of the gear is photoscanned Poly Haven props (run `python3 tools/fetch_assets.py` first); the rest is modelled and textured in the build
 - adds the 327 V8 and engine bay, the slot-loading tape deck, the Legos in the defroster vent, the army man in the rear ashtray and the carved "D.W." / "S.W."
 
 ## Credits
@@ -52,7 +55,7 @@ The Blender build scales and orients the base model, then turns it into Baby:
 - **Base 3D model:** ["Chevrolet Impala 1967"](https://sketchfab.com/3d-models/chevrolet-impala-1967-bce35ef0c10d41fdb3f7d8c4225144d2) by [Eques_inferno](https://sketchfab.com/Eques_inferno), licensed under [CC BY 4.0](http://creativecommons.org/licenses/by/4.0/). Adapted: re-scaled, split into panels, parts removed and added as described above.
 - **Music (local tapes):** Kevin MacLeod ([incompetech.com](https://incompetech.com)), licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/): "Big Rock", "Twisted", "Gearhead", "Hotrock", "Neolith", "Slow Burn", "Matt's Blues", "OctoBlues", "Hustle", "Nile's Blues", "Metalmania", "Cool Rock", "Noise Attack", "Exhilarate", "Motherlode". Re-encoded at 96 kbps with loudness normalisation.
 - **Music ("The Real Deal" tape):** the actual songs from the show, streamed through Spotify's embed player. Nothing is hosted here.
-- **HDRIs, textures and trunk props:** [Poly Haven](https://polyhaven.com) (CC0): HDRIs "Narrow Moonlit Road", "Goegap Road" and "Mall Parking Lot"; asphalt, plaster, brick, timber and metal surfaces; the machete, hatchet, dagger, fish knife, crowbar, service pistol, bolt-action rifle, flashlight, bottles, ammo box, binder and cans. Prop and paper materials from [ambientCG](https://ambientcg.com) (CC0).
+- **HDRIs, textures and trunk props:** [Poly Haven](https://polyhaven.com) (CC0): HDRIs "Narrow Moonlit Road", "Goegap Road" and "Mall Parking Lot"; asphalt, plaster, brick, timber and metal surfaces; the machete, hatchet, dagger, fish knife, crowbar, hammer, service pistol, bolt-action rifle, flashlight, bottles, ammo box, binder and cans; the wood-fibre, weathered-wood and walnut scans behind the pegboard and the hand-made props. Prop and paper materials from [ambientCG](https://ambientcg.com) (CC0).
 - **Sounds:** engine, door and trunk recordings by Joseph Sardin, [BigSoundBank](https://bigsoundbank.com) (CC0); tape deck and door creak from PDSounds (public domain).
 - **Fonts:** League Gothic (SIL OFL), Special Elite (Apache 2.0), Reenie Beanie (SIL OFL). Licence files sit next to the fonts.
 - **Reference images:** collected mostly from [thespnreferencedesk](https://www.tumlook.com/thespnreferencedesk) and Reddit. They live in `references/` and were used for modelling only; none of them appear on the site.

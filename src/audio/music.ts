@@ -1,4 +1,5 @@
 import type { AudioEngine } from './audio';
+import { assetUrl } from '../boot/assets';
 import { TAPES, type Tape, type Track } from '../content/lore';
 
 interface SpotifyController {
@@ -75,7 +76,7 @@ export class MusicPlayer {
   private loadLocal() {
     const t = this.track;
     if (!t.src) return;
-    this.el.src = `${import.meta.env.BASE_URL}${t.src}`;
+    this.el.src = assetUrl(t.src);
     this.el.load();
   }
 

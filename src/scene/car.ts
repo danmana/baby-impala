@@ -16,7 +16,7 @@ export interface CarParts {
 const OWN_MATS = new Set([
   'chrome', 'mirror', 'steel', 'steel_dark', 'gunmetal', 'silver', 'nickel', 'iron', 'brass', 'bowtie', 'drum',
   'exhaust', 'wood', 'wood_dark', 'wood_trim', 'leather', 'leather_dark', 'antler', 'ivory', 'felt', 'felt_red',
-  'carpet', 'carpet_gray', 'strap', 'twine', 'sage', 'feather', 'bottle_glass', 'blood_glass', 'oil_glass',
+  'carpet', 'carpet_gray', 'strap', 'twine', 'sage', 'feather', 'feather_dark', 'bottle_glass', 'blood_glass', 'oil_glass',
   'salt_blue', 'ammo_green', 'cardboard', 'shell_red', 'paper', 'plastic_black', 'red_plastic', 'zippo_blue',
   'tape', 'burlap', 'canvas_olive', 'bead_blue', 'led_red', 'led_green', 'engine', 'engine_dark', 'underbody',
   'radiator', 'wire_red', 'spot_lens', 'black', 'rubber', 'plastic_olive', 'dial', 'lens_clear', 'lego_red',

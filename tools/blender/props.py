@@ -5,8 +5,11 @@ Every builder creates its geometry around the origin, lying along +X
 trunk.py / interior.py.
 """
 import math
+import random
+import bmesh
 from mathutils import Vector, Matrix
 import lib as L
+import phprops as PH
 
 
 def _circle(r, n=12):
@@ -55,11 +58,50 @@ def machete(name):
     return o
 
 
-def stake(name, length=0.3):
-    o = L.lathe(name, [(0, 0.0), (0.07, 0.014), (length, 0.016), (length, 0.0)], segments=8,
-                mat='wood', axis='X', close=False)
-    o.data.transform(Matrix.Translation((-length / 2, 0, 0)))
+def _tex(o, kind, metal=0.0):
+    """Give a finished part its scanned material and a world-scale UV map now
+    (grain along the part's length, +X), so later joins keep it."""
+    o.data.materials.clear()
+    o.data.materials.append(PH.tex_material(kind, metal))
+    PH.uv_unwrap(o)
     return o
+
+
+def stake(name, length=0.3, seed=1):
+    """A whittled stake: a rough seven-sided shaft cut down to a faceted
+    point, the butt end knocked round, a slight bend in the wood."""
+    rnd = random.Random(seed)
+    sides = 7
+    jitter = [1 + rnd.uniform(-0.12, 0.12) for _ in range(sides)]
+    cuts = [1 + rnd.uniform(-0.3, 0.3) for _ in range(sides)]
+    rows = []
+    stations = [0.0, 0.004, 0.012] + [length * t for t in (0.08, 0.2, 0.35, 0.5, 0.6, 0.66, 0.72, 0.78, 0.84, 0.9, 0.95, 0.985, 1.0)]
+    r0 = 0.0155
+    for x in stations:
+        t = x / length
+        if x < 0.012:
+            r = r0 * (0.8 + 0.2 * x / 0.012)
+        elif t < 0.62:
+            r = r0 * (1 - 0.08 * t)
+        else:
+            k = (t - 0.62) / 0.38
+            r = r0 * 0.95 * max(0.04, (1 - k) ** 1.15)
+        bend = 0.004 * math.sin(math.pi * t)
+        ring = []
+        for i in range(sides):
+            a = 2 * math.pi * (i + 0.3) / sides
+            f = jitter[i] * (cuts[i] if t > 0.62 else 1.0) if t < 0.995 else 1.0
+            rr = r * min(f, 1.25)
+            ring.append(Vector((x, rr * math.cos(a) + bend, rr * math.sin(a))))
+        rows.append(ring)
+    verts = [v for ring in rows for v in ring]
+    faces = L.grid_faces(len(rows), sides, close_cols=True)
+    faces.append(tuple(reversed(range(sides))))
+    base = (len(rows) - 1) * sides
+    faces.append(tuple(base + i for i in range(sides)))
+    o = L.mesh_object(name, verts, faces, None, smooth=False)
+    o.data.transform(Matrix.Translation((-length / 2, 0, 0)))
+    return _tex(o, 'stake_wood')
 
 
 def hatchet(name):
@@ -89,12 +131,42 @@ def arrow(name, length=0.75):
     return L.join(parts, name)
 
 
-def cross(name, h=0.36, w=0.2, t=0.025, mat='wood'):
-    a = L.box(name + '_v', (h, t, t * 1.4), (0, 0, 0), mat, bevel=0.004)
-    b = L.box(name + '_h', (t * 1.4, w, t * 1.2), (h * 0.22, 0, 0.004), mat, bevel=0.004)
-    twine = L.lathe(name + '_tw', [(-0.02, 0.022), (0.02, 0.022)], segments=10, mat='twine', axis='X',
-                    center=(h * 0.22, 0, 0.0))
-    return L.join([a, b, twine], name)
+def _slat(name, length, t, d, seed):
+    """A sawn slat along +X with rough, slightly skewed ends."""
+    rnd = random.Random(seed)
+    o = L.box(name, (length, t, d), (0, 0, 0), None, bevel=0.0015)
+    for v in o.data.vertices:
+        if abs(v.co.x) > length / 2 - 0.004:
+            v.co.x += rnd.uniform(-0.003, 0.003) + (v.co.y / t) * 0.004
+    return o
+
+
+def cross(name, h=0.36, w=0.2, t=0.026, d=0.016):
+    """Two weathered slats lashed together with twine, the long one on the
+    board, the arms on top of it (top towards +X)."""
+    a = _tex(_slat(name + '_v', h, t, d, 3), 'cross_wood')
+    a.data.transform(Matrix.Translation((0, 0, d / 2)))
+    b = _tex(_slat(name + '_h', w, t, d, 5), 'cross_wood')
+    b.data.transform(Matrix.Rotation(math.pi / 2, 4, 'Z'))
+    xa = h * 0.2
+    b.data.transform(Matrix.Translation((xa, 0, d * 1.5)))
+    parts = [a, b]
+    # diagonal lashing: loops round the joint in both diagonals
+    for k, diag in enumerate((Vector((1, 1, 0)).normalized(), Vector((1, -1, 0)).normalized())):
+        for j in range(3):
+            off = (j - 1) * 0.0035
+            side = Vector((-diag.y, diag.x, 0))
+            hw = t * 0.78
+            z0, z1 = -0.0006, 2 * d + 0.0008
+            c = Vector((xa, 0, 0)) + side * off
+            ring = [c + diag * hw + Vector((0, 0, z0)), c + diag * hw + Vector((0, 0, z1)),
+                    c - diag * hw + Vector((0, 0, z1)), c - diag * hw + Vector((0, 0, z0))]
+            path = L.catmull(ring, 4, closed=True)
+            path.append(path[0])
+            lp = L.sweep(name + f'_tw{k}{j}', path, _circle(0.0011, 5), None, closed_profile=True, cap=False)
+            parts.append(_tex(lp, 'twine'))
+    o = L.join(parts, name)
+    return o
 
 
 def sage(name):
@@ -111,12 +183,61 @@ def sage(name):
 
 
 def knuckles(name):
-    parts = [L.box(name + '_bar', (0.1, 0.012, 0.02), (0, 0, -0.022), 'brass', bevel=0.005)]
-    for i in range(4):
-        t = L.lathe(name + f'_r{i}', [(-0.006, 0.011), (-0.006, 0.016), (0.006, 0.016), (0.006, 0.011)],
-                    segments=16, mat='brass', axis='Y', center=(-0.036 + 0.024 * i, 0, 0), close=True)
-        parts.append(t)
-    return L.join(parts, name)
+    """Brass knuckles lying flat: four finger rings over a curved palm bar,
+    cut from one plate (rings towards +Y)."""
+    xs = [-0.0375 + 0.025 * i for i in range(4)]
+    top = []
+    for x in xs:
+        for k in range(7):
+            a = math.pi * (1 - k / 6)
+            top.append((x + 0.0142 * math.cos(a), 0.012 + 0.0142 * math.sin(a) * 0.95))
+    outline = top + [(0.052, 0.0), (0.05, -0.016), (0.03, -0.029), (0.0, -0.033), (-0.03, -0.029), (-0.05, -0.016),
+                     (-0.052, 0.0)]
+    plate = L.extrude_outline(name, outline, 0.0085, 'brass', bevel_w=0.0, smooth=False)
+    for x in xs:
+        cut = L.cylinder(name + '_c', 0.0098, 0.03, (x, 0.012, 0.004), axis='Z', segments=20)
+        L.boolean(plate, cut)
+    # the open slot between the rings and the palm bar
+    slot = L.box(name + '_s', (0.074, 0.0105, 0.03), (0, -0.0142, 0.004), None, bevel=0.005, segments=3)
+    L.boolean(plate, slot)
+    L.bevel(plate, 0.0016, segments=2, angle=40)
+    plate.data.shade_smooth()
+    L.auto_smooth(plate, 40)
+    plate.data.transform(Matrix.Translation((0, 0.004, 0)))
+    return plate
+
+
+def _feather(name, top, length, seed):
+    """A hanging feather in the XZ plane: a long vane, ragged where the barbs
+    split, pale at the quill end and banded dark towards the tip."""
+    rnd = random.Random(seed)
+    w = length * 0.11
+    split = 0.62
+
+    def half(t):
+        return w * max(0.0, 1 - ((t - 0.6) / 0.62) ** 2) ** 0.5
+
+    def vane(t0, t1, mat, n):
+        right, left = [], []
+        for i in range(n + 1):
+            t = t0 + (t1 - t0) * i / n
+            rag = 0.8 if i % 2 else 1.0
+            right.append((half(t) * rag * (1 + rnd.uniform(-0.06, 0.06)), -length * t))
+            left.append((-half(t) * 0.9 * (1.0 if i % 2 else 0.84), -length * t))
+        if t1 >= 1.0:
+            right[-1] = (0.0, -length * 1.02)
+            left = left[:-1]
+        if t0 <= 0.0:
+            left = left[1:]
+        o = L.extrude_outline(name + mat, right + list(reversed(left)), 0.0008, mat)
+        o.data.transform(Matrix.Rotation(math.pi / 2, 4, 'X'))
+        o.data.transform(Matrix.Translation(top))
+        return o
+
+    parts = [vane(0.0, split, 'feather', 8), vane(split - 0.004, 1.0, 'feather_dark', 6)]
+    parts.append(rod(name + '_q', (top[0], top[1] + 0.0006, top[2] + 0.008), (top[0], top[1] + 0.0006, top[2] - length * 0.92),
+                     0.0007, 'ivory', 4, taper=0.4))
+    return parts
 
 
 def dreamcatcher(name, r=0.08):
@@ -129,12 +250,8 @@ def dreamcatcher(name, r=0.08):
         parts.append(rod(name + f'_w{i}', (r * math.cos(a), 0, r * math.sin(a)),
                          (r * 0.35 * math.cos(b), 0, r * 0.35 * math.sin(b)), 0.0009, 'twine', 4))
     for k, dx in enumerate((-0.03, 0.0, 0.03)):
-        parts.append(rod(name + f'_s{k}', (dx, 0, -r), (dx * 1.2, 0, -r - 0.09), 0.0012, 'leather', 4))
-        fe = L.extrude_outline(name + f'_fe{k}', [(-0.006, 0), (0.006, 0), (0.004, -0.06), (0, -0.07),
-                                                  (-0.004, -0.06)], 0.001, 'feather')
-        fe.data.transform(Matrix.Rotation(math.pi / 2, 4, 'X'))
-        fe.data.transform(Matrix.Translation((dx * 1.2, 0, -r - 0.08)))
-        parts.append(fe)
+        parts.append(rod(name + f'_s{k}', (dx, 0, -r), (dx * 1.2, 0, -r - 0.05), 0.0012, 'leather', 4))
+        parts += _feather(name + f'_fe{k}', (dx * 1.2, 0, -r - 0.048), 0.085 - 0.008 * abs(k - 1), k)
     o = L.join(parts, name)
     # lie flat in the XY plane (faces +Z like everything else mounted on the board)
     o.data.transform(Matrix.Rotation(-math.pi / 2, 4, 'X'))
@@ -364,14 +481,69 @@ def chain(name, links=12):
     return o
 
 
+def hanging_chain(name, links=13, span=0.23, pitch=0.022):
+    """A chain hanging in a curve between two pegs (end links at x = +-span/2),
+    links alternating flat on the board and up on edge."""
+    arc = (links - 1) * pitch
+    sag = math.sqrt(max(3 * span * (arc - span) / 8, 1e-6))
+    xs = [(-0.5 + i / 400) * span for i in range(401)]
+    ys = [sag * (4 * (x / span) ** 2 - 1) for x in xs]
+    acc = [0.0]
+    for i in range(1, len(xs)):
+        acc.append(acc[-1] + math.hypot(xs[i] - xs[i - 1], ys[i] - ys[i - 1]))
+    wire, hl, hw = 0.0028, 0.011, 0.006
+    ring = []
+    for k in range(16):
+        a = 2 * math.pi * k / 16
+        cx = (hl - hw) * (1 if math.cos(a) >= 0 else -1)
+        ring.append(Vector((cx + hw * math.cos(a), hw * math.sin(a), 0)))
+    ring.append(ring[0])
+    parts = []
+    for i in range(links):
+        s_i = acc[-1] * i / (links - 1)
+        j = min(range(len(acc)), key=lambda q: abs(acc[q] - s_i))
+        j2 = min(j + 1, len(xs) - 1)
+        j1 = max(j2 - 1, 0)
+        ang = math.atan2(ys[j2] - ys[j1], xs[j2] - xs[j1])
+        lk = L.sweep(name + f'_{i}', ring, _circle(wire, 6), 'iron', cap=False)
+        if i % 2:
+            lk.data.transform(Matrix.Rotation(math.pi / 2, 4, 'X'))
+            lk.data.transform(Matrix.Translation((0, 0, hw + wire)))
+        else:
+            lk.data.transform(Matrix.Translation((0, 0, wire)))
+        lk.data.transform(Matrix.Translation((xs[j], ys[j], 0)) @ Matrix.Rotation(ang, 4, 'Z'))
+        parts.append(lk)
+    return L.join(parts, name)
+
+
 def duct_tape(name):
     return L.lathe(name, [(0, 0.03), (0, 0.055), (0.048, 0.055), (0.048, 0.03)], segments=24, mat='tape',
                    axis='Z', close=True)
 
 
 def hex_bag(name):
-    o = L.lathe(name, [(0, 0.0), (0.005, 0.03), (0.04, 0.034), (0.06, 0.02), (0.07, 0.008), (0.09, 0.012),
-                       (0.095, 0.0)], segments=12, mat='burlap', axis='Z')
+    """A hex bag: a small, lumpy cloth pouch lying flat (neck towards +X),
+    cinched with twine, the gathered cloth fanned out above the tie."""
+    rnd = random.Random(9)
+    body = L.box(name, (0.056, 0.05, 0.026), (0, 0, 0.013), None, bevel=0.012, segments=4)
+    for v in body.data.vertices:
+        t = min(max((v.co.x + 0.028) / 0.056, 0.0), 1.0)
+        k = 1 - 0.7 * max(0.0, t - 0.45) / 0.55
+        v.co.y = v.co.y * k * (1 + rnd.uniform(-0.05, 0.05))
+        v.co.z = 0.013 + (v.co.z - 0.013) * (0.6 + 0.4 * k) + rnd.uniform(-0.0012, 0.0012)
+    _tex(body, 'canvas_olive')
+    ruffle = L.lathe(name + '_r', [(0.0, 0.0072), (0.004, 0.009), (0.01, 0.0135), (0.015, 0.0165), (0.0165, 0.0)],
+                     segments=12, axis='X', center=(0.03, 0, 0.013))
+    for v in ruffle.data.vertices:
+        v.co.z = 0.013 + (v.co.z - 0.013) * 0.55
+        v.co.y *= 1 + rnd.uniform(-0.12, 0.12)
+    _tex(ruffle, 'canvas_olive')
+    tie = L.lathe(name + '_tie', [(-0.0018, 0.0068), (0.0018, 0.0068), (0.0018, 0.0086), (-0.0018, 0.0086)], segments=14,
+                  axis='X', center=(0.0305, 0, 0.013), close=True)
+    tie.data.transform(Matrix.Translation((0, 0, 0)) @ Matrix.Diagonal((1, 1, 0.75, 1)))
+    _tex(tie, 'twine')
+    o = L.join([body, ruffle, tie], name)
+    o.data.transform(Matrix.Translation((-0.008, 0, 0)))
     return o
 
 
@@ -394,16 +566,34 @@ def _flat_blade(name, pts, thick, mat):
 
 
 def angel_blade(name):
-    """Angel blade: a long, narrow, double-edged silver blade with a flat
-    section (so it lies flat on the felt), on a ringed silver grip."""
-    pts = [(0.0, -0.0115), (0.2, -0.0095), (0.262, -0.0045), (0.29, 0.0), (0.262, 0.0045), (0.2, 0.0095),
-           (0.0, 0.0115)]
-    parts = [_flat_blade(name + '_b', pts, 0.0045, 'silver')]
-    parts.append(L.lathe(name + '_h', [(-0.105, 0.0), (-0.105, 0.0095), (0.0, 0.0095), (0.0, 0.0)], segments=10,
-                         mat='silver', axis='X'))
-    for k, x in enumerate((-0.02, -0.05, -0.08)):
-        parts.append(L.cylinder(name + f'_r{k}', 0.0108, 0.004, (x, 0, 0), axis='X', segments=12, mat='nickel'))
-    return L.join(parts, name)
+    """Angel blade: a long, slender three-sided silver blade (one face on the
+    board, a ridge towards the viewer) on a grooved silver grip."""
+    L_b = 0.285
+    rows = []
+    stations = [0.0, 0.03, 0.12, 0.2, 0.24, 0.265, 0.28, L_b]
+    for x in stations:
+        t = x / L_b
+        s = 0.0135 * (1 - 0.25 * t) if t < 0.84 else 0.0135 * 0.79 * max(0.02, (1 - t) / 0.16)
+        rows.append([Vector((x, -s / 2, 0.0)), Vector((x, s / 2, 0.0)), Vector((x, 0.0, s * 0.72))])
+    verts = [v for r in rows for v in r]
+    faces = L.grid_faces(len(rows), 3, close_cols=True)
+    faces.append((2, 1, 0))
+    base = (len(rows) - 1) * 3
+    faces.append((base, base + 1, base + 2))
+    bl = L.mesh_object(name + '_b', verts, faces, None, smooth=False)
+    L.weld(bl, 1e-5)
+    _tex(bl, 'silver', 1.0)
+    grip = L.lathe(name + '_h', [(-0.108, 0.0), (-0.108, 0.0082), (-0.1, 0.0092), (0.0, 0.0088), (0.0, 0.0)], segments=14,
+                   axis='X', center=(0, 0, 0.0092))
+    rings = [grip]
+    for k in range(7):
+        x = -0.012 - 0.013 * k
+        rings.append(L.cylinder(name + f'_r{k}', 0.0099, 0.0032, (x, 0, 0.0092), axis='X', segments=14))
+    rings.append(L.cylinder(name + '_col', 0.0112, 0.006, (0.002, 0, 0.0092), axis='X', segments=14, bevel=0.001))
+    g = _tex(L.join(rings, name + '_g'), 'silver', 1.0)
+    o = L.join([bl, g], name)
+    o.data.transform(Matrix.Translation((-0.09, 0, 0)))
+    return o
 
 
 def bowie(name):
@@ -466,20 +656,65 @@ def pouch(name, size=(0.14, 0.11, 0.05)):
     return L.join([b, f], name)
 
 
-def rosary(name, n=30, r=0.07):
+def _bead(name, p, r, segs=8):
+    bm = bmesh.new()
+    bmesh.ops.create_uvsphere(bm, u_segments=segs, v_segments=segs // 2 + 1, radius=r)
+    bmesh.ops.translate(bm, vec=Vector(p), verts=bm.verts)
+    me = bpy_mesh(name, bm)
+    return me
+
+
+def bpy_mesh(name, bm):
+    import bpy
+    me = bpy.data.meshes.new(name)
+    bm.to_mesh(me)
+    bm.free()
+    o = bpy.data.objects.new(name, me)
+    L.link(o)
+    o.data.shade_smooth()
+    return o
+
+
+def rosary(name, n=44):
+    """A rosary lying in a loop (top towards +X) with a short tail of beads
+    down to a small metal crucifix."""
     parts = []
+    rb = 0.0036
+    # loop: a rounded teardrop, widest near the top
+    loop = []
     for i in range(n):
         a = 2 * math.pi * i / n
-        parts.append(L.cylinder(name + f'_{i}', 0.004, 0.006, (r * math.cos(a) * 0.5, r * math.sin(a), 0.004),
-                                axis='Z', segments=6, mat='bead_blue'))
-    parts.append(cross(name + '_x', 0.05, 0.03, 0.004, 'silver'))
-    parts[-1].data.transform(Matrix.Translation((-0.06, 0, 0.004)))
-    return L.join(parts, name)
-
-
-def flare(name):
-    o = L.cylinder(name, 0.014, 0.22, (0, 0, 0), axis='X', segments=10, mat='red_plastic')
+        x = 0.034 * math.cos(a) + 0.006 * math.cos(2 * a)
+        y = 0.03 * math.sin(a) * (0.75 + 0.25 * math.cos(a))
+        loop.append((x + 0.02, y))
+    for i, (x, y) in enumerate(loop):
+        parts.append(_bead(name + f'_{i}', (x, y, rb), rb))
+    # the centre medal and the tail
+    parts.append(L.cylinder(name + '_m', 0.0058, 0.0022, (-0.02, 0, 0.0011), axis='Z', segments=12))
+    for k in range(5):
+        parts.append(_bead(name + f'_t{k}', (-0.03 - 0.0085 * k, 0, rb), rb))
+    beads = L.join(parts, name + '_b')
+    _tex(beads, 'walnut')
+    xa = -0.083
+    c1 = L.box(name + '_x1', (0.034, 0.0045, 0.003), (xa - 0.012, 0, 0.0015), None, bevel=0.0006)
+    c2 = L.box(name + '_x2', (0.0045, 0.022, 0.003), (xa - 0.004, 0, 0.0015), None, bevel=0.0006)
+    cx = _tex(L.join([c1, c2], name + '_x'), 'silver', 1.0)
+    o = L.join([beads, cx], name)
+    o.data.transform(Matrix.Translation((0.025, 0, 0)))
     return o
+
+
+def flare(name, pair=True):
+    """Road flares: red waxed-paper tubes with a black striker cap and a
+    printed band, two strapped side by side."""
+    parts = []
+    for k, dy in enumerate((-0.0145, 0.0145) if pair else (0.0,)):
+        tube = _tex(L.cylinder(name + f'_t{k}', 0.0132, 0.19, (0.0, dy, 0.0132), axis='X', segments=16), 'shell')
+        cap = L.cylinder(name + f'_c{k}', 0.0148, 0.048, (0.107, dy, 0.0132), axis='X', segments=16, mat='plastic_black',
+                         bevel=0.002)
+        band = L.cylinder(name + f'_b{k}', 0.01345, 0.055, (-0.02, dy, 0.0132), axis='X', segments=16, mat='paper')
+        parts += [tube, cap, band]
+    return L.join(parts, name)
 
 
 def lockpicks(name):

@@ -1,4 +1,4 @@
-import sizes from 'virtual:asset-sizes';
+import assets from 'virtual:asset-sizes';
 
 /**
  * Streaming downloads with byte-level progress. Everything the page needs is
@@ -9,12 +9,14 @@ export type ProgressFn = (loaded: number, total: number) => void;
 
 const base = import.meta.env.BASE_URL;
 
+/** the file's URL, versioned by its content so a stale cached copy is never reused */
 export function assetUrl(path: string) {
-  return `${base}${path}`;
+  const hash = assets[path]?.[1];
+  return hash ? `${base}${path}?v=${hash}` : `${base}${path}`;
 }
 
 export function expectedBytes(path: string) {
-  return (sizes as Record<string, number>)[path] ?? 0;
+  return assets[path]?.[0] ?? 0;
 }
 
 export async function fetchBytes(path: string, onProgress?: ProgressFn): Promise<ArrayBuffer> {

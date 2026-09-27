@@ -65,6 +65,9 @@ export class Hud {
   private fps = 0;
   private detected: Tier = 'high';
   private tipTimer = 0;
+  private plateBtn: HTMLButtonElement;
+  private plateTip: HTMLElement;
+  private plateTimer = 0;
   readonly trunkNote: HTMLElement;
   private hintDone = false;
 
@@ -148,9 +151,32 @@ export class Hud {
     this.checklist.append(
       h('div', { class: 'volume' }, this.muteBtn, this.slider),
       h('div', { class: 'quality' }, qRow, this.qualityNote, this.qualityTip),
+    );
+    // the plate she's wearing right now; clicking swaps it (a paper tag says so)
+    this.plateTip = h('div', { class: 'q-tip plate-tip sheet', role: 'tooltip', id: 'plate-tip' },
+      h('b', {}, 'Swap plates'), h('span', {}, 'Kansas ⇄ Ohio'));
+    this.plateBtn = h('button', { class: 'stamp plate', type: 'button', 'aria-describedby': 'plate-tip' },
+      h('span', { class: 'st' }, 'Kansas'), h('span', { class: 'num' }, 'KAZ 2Y5'));
+    const showPlateTip = () => this.plateTip.classList.add('show');
+    const hidePlateTip = () => this.plateTip.classList.remove('show');
+    this.plateBtn.addEventListener('pointerenter', showPlateTip);
+    this.plateBtn.addEventListener('focus', showPlateTip);
+    this.plateBtn.addEventListener('pointerleave', hidePlateTip);
+    this.plateBtn.addEventListener('blur', hidePlateTip);
+    this.plateBtn.addEventListener('click', () => {
+      on.flipPlates();
+      if (isTouch()) {
+        showPlateTip();
+        clearTimeout(this.plateTimer);
+        this.plateTimer = window.setTimeout(hidePlateTip, 2400);
+      }
+    });
+    this.setPlate(false, true);
+    this.checklist.append(
       h('div', { class: 'stamps' },
-        h('button', { class: 'stamp', type: 'button', onclick: () => on.flipPlates() }, 'Swap plates'),
+        this.plateBtn,
         h('button', { class: 'stamp', type: 'button', onclick: () => on.reset() }, 'Reset view'),
+        this.plateTip,
       ),
     );
 
@@ -196,14 +222,16 @@ export class Hud {
     this.lightBtns.forEach((b, k) => b.setAttribute('aria-checked', String(k === p)));
   }
 
-  /** mark the chosen mode and say what auto picked (and whether it had to step down) */
+  /** mark the chosen mode and say what auto picked (and where it has moved since) */
   setQuality(mode: QualityMode, active: Tier, detected: Tier) {
     this.detected = detected;
     this.qualityBtns.forEach((b, k) => b.setAttribute('aria-checked', String(k === mode)));
     const short = (t: Tier) => (t === 'medium' ? 'med' : t);
-    this.qualityText = mode === 'auto'
-      ? active === detected ? `picked ${short(active)}` : `dropped to ${short(active)}`
-      : `auto: ${short(detected)}`;
+    const rank = (t: Tier) => ['low', 'medium', 'high'].indexOf(t);
+    this.qualityText = mode !== 'auto'
+      ? `auto: ${short(detected)}`
+      : active === detected ? `picked ${short(active)}`
+      : rank(active) > rank(detected) ? `raised to ${short(active)}` : `dropped to ${short(active)}`;
     this.qualityLabel.textContent = this.qualityText;
   }
 
@@ -217,7 +245,7 @@ export class Hud {
   private showQualityTip(mode: QualityMode) {
     const q = QUALITY.find((x) => x.mode === mode)!;
     const body = mode === 'auto'
-      ? `Picks a level for this device (here: ${this.detected}) and steps down on its own if it can’t hold about 30 fps.`
+      ? `Starts at the level picked for this device (here: ${this.detected}), then adjusts as you go: down if it can’t hold about 30 fps, back up when there’s room to spare.`
       : QUALITY_TIPS[mode];
     this.qualityTip.replaceChildren(h('b', {}, q.name), h('span', {}, body));
     this.qualityTip.classList.add('show');
@@ -225,6 +253,25 @@ export class Hud {
 
   private hideQualityTip() {
     this.qualityTip.classList.remove('show');
+  }
+
+  /** show the plate number she's wearing; the stamp flips over like the plate does */
+  setPlate(ohio: boolean, instant = false) {
+    const [state, num] = ohio ? ['Ohio', 'CNK 80Q3'] : ['Kansas', 'KAZ 2Y5'];
+    const b = this.plateBtn;
+    b.setAttribute('aria-label', `Swap plates (now ${num}, ${state})`);
+    const write = () => {
+      (b.querySelector('.st') as HTMLElement).textContent = state;
+      (b.querySelector('.num') as HTMLElement).textContent = num;
+    };
+    if (instant || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      write();
+      return;
+    }
+    b.classList.remove('flip');
+    void b.offsetWidth;
+    b.classList.add('flip');
+    setTimeout(write, 200);
   }
 
   setToggle(key: ToggleKey, on: boolean) {

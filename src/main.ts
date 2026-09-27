@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { HDRLoader } from 'three/addons/loaders/HDRLoader.js';
 import './styles.css';
-import { detectTier, qualityFor, reducedMotion, FrameGovernor, isTouch, type Tier, type QualityMode } from './scene/quality';
+import { detectTier, qualityFor, reducedMotion, FrameGovernor, isTouch, stepTier, type Tier, type QualityMode } from './scene/quality';
 import { Stage } from './scene/stage';
 import { Materials } from './scene/materials';
 import { loadCar, type CarParts } from './scene/car';
@@ -344,6 +344,7 @@ async function main() {
     markShadows();
     car.plateFront.toggle(reduced);
     car.plateRear.toggle(reduced);
+    hud.setPlate(car.plateFront.ohio);
   }
 
   function overlayViewFor(v: ViewName): HotspotView | null {
@@ -427,12 +428,24 @@ async function main() {
     ndc.set(((x - r.left) / r.width) * 2 - 1, -((y - r.top) / r.height) * 2 + 1);
     ray.setFromCamera(ndc, camera);
     const hits = ray.intersectObject(car.root, true);
+    let found: THREE.Object3D | null = null;
     for (const h of hits) {
       const m = (h.object as THREE.Mesh).material as THREE.Material;
       if (m.transparent && !pickSet.has(h.object)) continue;
-      return pickSet.has(h.object) ? h.object : null;
+      found = pickSet.has(h.object) ? h.object : null;
+      break;
     }
-    return null;
+    if (found?.userData.item || director.view !== 'trunk' || trunk.progress < 0.5) return found;
+    // thin gear (a chain, a dreamcatcher's ring) is hard to land on exactly:
+    // try a small ring of rays around the pointer, against the gear only
+    for (let k = 0; k < 8; k++) {
+      const a = (k / 8) * Math.PI * 2;
+      ndc.set(((x + Math.cos(a) * 8 - r.left) / r.width) * 2 - 1, -((y + Math.sin(a) * 8 - r.top) / r.height) * 2 + 1);
+      ray.setFromCamera(ndc, camera);
+      const near = ray.intersectObjects(trunk.items, false)[0];
+      if (near) return near.object;
+    }
+    return found;
   }
   const itemOf = (o: THREE.Object3D | null) => (o?.userData.item as string | undefined) ?? null;
 
@@ -590,12 +603,13 @@ async function main() {
   }
   hud.setQuality(qualityMode, tier, detected);
 
-  // in auto, step quality down only when it's really struggling (under ~30 fps
-  // on a desktop, ~20 on a phone): full quality at 40 fps beats low quality at 60.
-  // A level the viewer picked is left alone.
-  const governor = new FrameGovernor(isTouch() ? 40 : 26, () => {
-    if (qualityMode !== 'auto' || tier === 'low') return false;
-    applyQuality(tier === 'high' ? 'medium' : 'low');
+  // in auto, step down only when it's really struggling (under ~30 fps on a
+  // desktop, ~20 on a phone): full quality at 40 fps beats low quality at 60.
+  // Step back up while it holds ~55 fps. A level the viewer picked is left alone.
+  const governor = new FrameGovernor(isTouch() ? 40 : 26, (dir) => {
+    const next = stepTier(tier, dir);
+    if (qualityMode !== 'auto' || !next) return false;
+    applyQuality(next);
     return true;
   });
   // frames per second for the quiet readout in the checklist
@@ -609,6 +623,17 @@ async function main() {
   const spotSide = lights.spotPivots.map((p) => (p.getWorldPosition(new THREE.Vector3()).z < 0 ? 1 : -1));
   const reflHide: THREE.Object3D[] = [...atmo.reflectionHidden, exploder.lines, sigils.group, ...hiddenAway];
   const lidInner = car.byName.get('trunk_lid_inner');
+  // the spotlights only exist in the early seasons: switched off, they come off
+  // the car. Their meshes move to a layer no camera renders (hiding the housing
+  // would also drop the SpotLight inside it, and a changed light count recompiles
+  // every shader)
+  const spotMeshes: THREE.Mesh[] = [];
+  for (const n of ['spotlight_l', 'spotlight_r', 'spot_mount_l', 'spot_mount_r', 'spot_handle_l', 'spot_handle_r']) {
+    car.byName.get(n)?.traverse((o) => {
+      if ((o as THREE.Mesh).isMesh) spotMeshes.push(o as THREE.Mesh);
+    });
+  }
+  let spotsFitted = true;
   let lastX = -1;
   let lastT = -1;
   const box = new THREE.Box3();
@@ -631,6 +656,15 @@ async function main() {
       const sweep = reduced ? 0.15 : 0.15 + Math.sin(t * 0.35 + i * 1.7) * 0.25;
       p.rotation.set(0, side * sweep, 0.035 + (reduced ? 0 : Math.sin(t * 0.23 + i) * 0.025));
     });
+    // fitted as soon as they're switched on, taken off once the lamps have died down
+    const fitted = lights.spotlightsOn || lights.spotOn > 0.02;
+    if (fitted !== spotsFitted) {
+      spotsFitted = fitted;
+      spotMeshes.forEach((o) => (fitted ? o.layers.set(0) : o.layers.set(31)));
+      if (fitted) overlay.hidden.delete('spotlights');
+      else overlay.hidden.add('spotlights');
+      markShadows();
+    }
     headBeams.forEach((b) => (b.intensity = lights.headOn * 0.9));
     spotBeams.forEach((b, i) => {
       const p = lights.spotPivots[i];

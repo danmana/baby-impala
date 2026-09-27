@@ -107,7 +107,8 @@ def tex_material(kind, metallic=0.0, rough_scale=1.0):
 
 # flat procedural material name -> (texture set, metallic)
 REMAP = {
-    'wood': ('wood_light', 0.0), 'wood_dark': ('wood_dark', 0.0), 'antler': ('wood_light', 0.0),
+    # raw and oiled wood without plank seams (the plank sets read as floorboards on a stake or a stock)
+    'wood': ('stake_wood', 0.0), 'wood_dark': ('walnut', 0.0), 'antler': ('walnut', 0.0),
     'leather': ('leather_brown', 0.0), 'leather_dark': ('leather_black', 0.0), 'strap': ('leather_black', 0.0),
     'steel': ('steel', 1.0), 'steel_dark': ('gunmetal', 1.0), 'gunmetal': ('gunmetal', 0.9), 'iron': ('gunmetal', 0.85),
     'silver': ('silver', 1.0), 'nickel': ('silver', 1.0), 'brass': ('brass', 1.0),

@@ -78,9 +78,9 @@ export const HOTSPOTS: Hotspot[] = [
       title: 'Twin spotlights',
       body: [
         'Two small round chrome spotlights sit on the A-pillars, one each side, aimed by a handle inside the cabin. On a black car at night they are one of the easiest ways to pick Baby out of a line-up.',
-        'Fan wikis note they disappear for a stretch of the show, when crews needed the pillars for camera rigs, and come back later. Switch them on and sweep them across the dark.',
+        'They only ride along for the first few seasons; after that she runs without them. Switch them off and they come off the car.',
       ],
-      refs: 'Super-wiki continuity notes',
+      refs: 'Early seasons',
     },
   },
   {
@@ -320,7 +320,7 @@ export const TRUNK_ITEMS: Record<string, TrunkItem> = {
   hex_bag: item('Hex bag', ['Witches hide these to curse a victim. Find it and burn it, and the curse breaks.']),
   holy_oil: item('Holy oil', ['Light a ring of it and an angel can’t cross the flames.'], 'Seasons 5–6 onward'),
   cross: item('Cross', ['General warding. It helps with exorcisms, but faith matters more than the wood.']),
-  sage: item('Sage bundle', ['Burned for cleansing and warding, as it was on the pegboard of the real prop trunk.']),
+  sage: item('Sage bundle', ['Burned for cleansing and warding a room.']),
   dreamcatcher: item('Dreamcatcher', ['Fan-wiki inventories list one in the trunk; the show never makes much of it. A hunter takes whatever works.']),
   brass_knuckles: item('Brass knuckles', ['For when it has a body and you’re out of shells. A later set is inscribed with Enochian, which makes them work on angels.']),
   hatchet: item('Hatchet', ['Chops wood for bonfires, and heads when the machete is out of reach.']),
@@ -331,7 +331,7 @@ export const TRUNK_ITEMS: Record<string, TrunkItem> = {
   duct_tape: item('Duct tape', ['Restraints, repairs, and gagging people who ask too many questions.']),
   rope: item('Rope', ['Tie up a vessel for an exorcism, climb down a well, drag a coffin. Chains when it is stronger than you.']),
   chain: item('Chain', ['Some things break rope. Iron chain holds the ones that don’t like iron.']),
-  flares: item('Road flare', ['Wendigos only die by fire. So does a lot of other stuff.'], '1.02 “Wendigo”'),
+  flares: item('Road flares', ['Wendigos only die by fire. So does a lot of other stuff.'], '1.02 “Wendigo”'),
   bowie: item('Bowie knife', ['A big plain steel knife for jobs that don’t need anything special.']),
   silver_knife: item('Silver knife', ['For djinn, shifters, werewolves and anything else silver hurts.']),
   sheath_knife: item('Knife in a sheath', ['Strapped to the board with the rest of the blades.']),
@@ -342,6 +342,7 @@ export const TRUNK_ITEMS: Record<string, TrunkItem> = {
   rosary: item('Rosary', ['Blessed beads. Dunk one in water and you have a quick batch of holy water.']),
   stake: item('Wooden stake', ['Old-school vampire lore. In this world it takes a head, not a stake, but stakes still work on some other things.']),
   stake_2: item('Another stake', ['Better to have one and not need it.']),
+  hammer: item('Hammer', ['Drives stakes, nails a door shut, knocks a padlock off. Nobody packs stakes without one.']),
 };
 
 export interface Track {

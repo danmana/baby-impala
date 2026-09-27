@@ -148,16 +148,17 @@ gl_Position = p.xyww;   // depth is always 1.0: the sky never gets closer</code>
         </figure>
 
         <p>The spotlights sweep slowly outward, like someone searching the tree line, and stay level. In one version they dipped onto the hood and left a bright patch on the paint. In another, the driver-side lamp swept inward across the car, because I'd assumed which lamp was on which side instead of checking.</p>
+        <p>The spotlights only rode along for the first few seasons, so switched off, they come off the car completely, together with their sigil and their label in the exploded view. Hiding the lamp housing outright would also have removed the light inside it, and a changed light count makes three.js recompile every shader. So the meshes move to a layer no camera renders instead.</p>
 
         <h2>The trunk</h2>
-        <p>The trunk was the part Dan cared about most, and the one that needed the most work. When the lid opens, the false floor stands up like a pegboard with the blades strapped to its felt. Below it, a grey tray holds the rest of the gear. Hover over anything and it glows and gets a paper tag. Click it and its page opens in the journal. The chevrons at the foot of the page walk through the whole inventory in reading order: the Devil's Trap first, then the board row by row, then the tray.</p>
+        <p>The trunk was the part Dan cared about most, and the one that needed the most work. When the lid opens, the false floor stands up. Its underside is a pegboard, with the gear hung on pegs and spring clips. Below it, a grey tray holds the rest. Hover over anything and it glows and gets a paper tag. Click it and its page opens in the journal. The chevrons at the foot of the page walk through the whole inventory in reading order: the Devil's Trap first, then the board row by row, then the tray.</p>
 
         <figure class="photo wide tilt-l">
           <img src="/about/trunk_ui.webp" width="1600" height="1000" loading="lazy" alt="The open trunk: the Devil's Trap painted on the lid, weapons on the standing board, gear in the tray, and a journal page about the Colt open on the right." />
-          <figcaption>The Colt's page, with the trunk open behind it. The chevrons at the bottom page through all 41 entries.</figcaption>
+          <figcaption>The Colt's page, with the trunk open behind it. The Colt's case glows while its page is open, and the chevrons at the bottom page through all 42 entries.</figcaption>
         </figure>
 
-        <p>Most of the gear comes from Poly Haven's free model library: the machete, hatchet, fish knife, crowbar, service pistol, bolt-action rifle, flashlight, the holy-water bottle, ammo boxes, John's binder and the salt box. Things you can't download are modelled in the build: the Colt, the angel blade, Ruby's knife, a proper Bowie, the EMF meter, the hex bag, the dreamcatcher and the rosary. Their materials come from ambientCG. The Devil's Trap on the underside of the lid is painted at runtime onto a canvas, in brush strokes.</p>
+        <p>Most of the gear comes from Poly Haven's free model library: the machete, hatchet, fish knife, crowbar, service pistol, bolt-action rifle, flashlight, the holy-water bottle, ammo boxes, John's binder and the salt box. The hammer next to the stakes is from Poly Haven too. Things you can't download are modelled in the build: the Colt, the angel blade, Ruby's knife, a proper Bowie, the stakes, the cross, the road flares, the EMF meter, the hex bag, the dreamcatcher and the rosary. Their materials come from ambientCG. The Devil's Trap on the underside of the lid is painted at runtime onto a canvas, in brush strokes.</p>
         <p>Three problems here are worth telling:</p>
         <ul>
           <li><strong>The lid clipped through the body.</strong> The build now sweeps the lid through its whole swing and tests it for overlaps with the body. The hinge moved to the lid's top-front edge, the first position with zero overlaps, and the pegboard opens to 78° so it clears the lid.</li>
@@ -165,18 +166,30 @@ gl_Position = p.xyww;   // depth is always 1.0: the sky never gets closer</code>
           <li><strong>One of my own glyphs was bad.</strong> A symbol I'd invented for the Devil's Trap ring was a cross with hooked arms, and it read as a swastika. It's now a forked stem. Lesson learned: look at every symbol you draw.</li>
         </ul>
 
+        <h3>A real pegboard</h3>
+        <p>The next round started with a surprise. Dan sent a screenshot of the trunk, and it was the round-one gear: flat colours, knives on their edges, a hatchet sticking out of the board. None of the fixes above were in it. Dan's browser had kept the first model: the site told browsers to cache the model for a week, and its URL never changed. Every file the page loads now carries a short hash of its contents in its URL, so a new build always means a new URL.</p>
+        <p>Dan had seen a Blender render of the newer board while I worked on it, and called it better but "still not great". That was fair. The black felt made everything look like it was floating in a void, and the layout was a jumble: the angel blade crossed the machete, and the stakes overlapped the Bowie. So I rebuilt the board as what the brief asked for, a pegboard:</p>
+        <ul>
+          <li><strong>The board</strong> is quarter-inch hardboard with holes on a one-inch grid. Its texture is generated from a Poly Haven scan of wood fibre, with a normal map for the chamfer around every hole.</li>
+          <li><strong>The layout</strong> follows a tool board: the long pieces run across the top, the blades stand in a row, and the small things go along the bottom. Nothing overlaps.</li>
+          <li><strong>Everything hangs the way it would in a workshop.</strong> The machete, the arrow and the cross rest on L-shaped pegs. Knives, the hatchet and the hammer stand on a pair of pegs under their guards or heads. Stakes, the sage and the crowbar are held by spring-steel clips. The dreamcatcher, the knuckles, the rosary and the chain hang from pegs through their loops.</li>
+          <li><strong>None of it is placed by hand.</strong> The build casts rays through each item to find its lower edge and the outline of its grip. It puts the pegs in the nearest real holes and slides the item down onto them. The clips are shaped from the same rays, so each band hugs the item's profile.</li>
+          <li><strong>Contact shadows are baked in.</strong> Cycles renders ambient occlusion and a soft lamp above the board straight into the pegboard's texture, so each piece leaves a faint shadow on the board.</li>
+          <li><strong>The weakest props were rebuilt:</strong> whittled seven-sided stakes, a cross of two weathered slats lashed with twine, an angel blade with a three-sided blade, road flares with striker caps, brass knuckles cut from one plate, a proper rosary, a cinched hex bag and a chain hanging in a curve between two pegs.</li>
+        </ul>
+
         <figure class="pair">
           <div class="photo tilt-r">
-            <img src="/about/board.webp" width="1600" height="1000" loading="lazy" alt="Close-up of the standing board: machete, arrow, hatchet lying horizontally, several knives, stakes, a cross, brass knuckles, a dreamcatcher, a crowbar and a pistol." />
-            <figcaption>The board after the fixes: the hatchet lies across it, and the blades lie flat.</figcaption>
+            <img src="/about/board.webp" width="1600" height="1000" loading="lazy" alt="Close-up of the pegboard on the standing false floor: a machete and an arrow across the top, a row of knives, a hatchet, two whittled stakes and a hammer, a lashed cross, a dreamcatcher with feathers, a pistol, brass knuckles, a crowbar, road flares, a hanging chain, a hex bag and a rosary, all on metal pegs and clips." />
+            <figcaption>The pegboard: every piece on pegs in real holes, or in a clip shaped to it.</figcaption>
           </div>
           <div class="photo tilt-l">
             <img src="/about/knives.webp" width="1000" height="750" loading="lazy" alt="A grid of isolated Blender renders of each knife and the hatchet from face-on and end-on, used to check how they lie." />
-            <figcaption>How I checked: every knife rendered on its own, face-on and end-on.</figcaption>
+            <figcaption>An earlier check: every knife rendered on its own, face-on and end-on.</figcaption>
           </div>
         </figure>
 
-        <p>The glow is three.js's OutlinePass. It only runs while something is hovered or selected, and it's compiled during loading, so the first hover doesn't stutter.</p>
+        <p>The glow is three.js's OutlinePass. It only runs while something is hovered or selected, and it's compiled during loading, so the first hover doesn't stutter. On the board it had never worked. To draw its mask, OutlinePass hides every mesh that isn't selected. The gear hung from the board's mesh, so hiding the board hid the knife too. The board and the lid now hang from empty pivots. Thin things like the chain and the dreamcatcher's ring are also forgiving to point at: if the pointer just misses, a small ring of extra rays checks around it.</p>
 
         <h2>Inside</h2>
         <p>The interior view puts you on the front bench. Drag to look around (drag down and you look down, which I first got backwards), scroll or pinch to zoom. The tape deck sits in the dash. For the first time, the whole deck is visible. Its right end used to disappear into the dash's diagonal cut-out. I found its new position by ray-testing its face from the driver's eye positions until less than five percent was hidden.</p>
@@ -237,6 +250,8 @@ gl_Position = p.xyww;   // depth is always 1.0: the sky never gets closer</code>
           </div>
         </figure>
 
+        <p>The plate button shows the number she's wearing, KAZ 2Y5 or CNK 80Q3, stamped like a little licence plate. Hovering over it says what it does, and clicking it flips the stamp and both plates.</p>
+
         <p>The sigils that mark points of interest are painted glyphs in cream brush strokes, drawn as sprites in the scene rather than stuck on top of the page. A flat sprite on a curved panel gets cut in half by the depth buffer, so they ignore it. Instead, a ray from the camera decides whether each one is hidden behind the car.</p>
 
         <h2>Sound</h2>
@@ -290,7 +305,7 @@ gl_Position = p.xyww;   // depth is always 1.0: the sky never gets closer</code>
           <li><strong>Fewer lights.</strong> Every light costs every lit pixel on every material, and on this scene the small lights alone cost about 5 of 13 milliseconds. A RectAreaLight for the neon cost about 3 ms even at zero intensity. Glows that don't need to light anything (the dash, the plate lamp) became emissive only. Eleven small lights became seven.</li>
           <li><strong>An accidental second render.</strong> One photoscanned bottle came in with refractive glass, which makes three.js render the whole scene a second time every frame it's visible. Alpha glass looks the same at that size.</li>
           <li><strong>CSS can be expensive too.</strong> Paper scraps with <code>filter: drop-shadow</code> over a canvas that repaints every frame made the browser's compositor re-run those filters constantly. Box shadows are rasterised once.</li>
-          <li><strong>Resolution per device.</strong> The fast tier renders at 1.25× with 4× MSAA and a 2048-pixel shadow map. The middle tier drops to 2× MSAA and smaller shadows and reflections. The low tier renders at 0.75× without shadows, bloom or light shafts. On Auto, a governor steps down only if the frame rate stays below about 30 frames per second (20 on phones), because full quality at 40 fps beats low quality at 60. You can also pick a level yourself at the bottom of the checklist: hovering over each one says what it changes, and a pencilled note shows what Auto would pick and the current frame rate.</li>
+          <li><strong>Resolution per device.</strong> The fast tier renders at 1.25× with 4× MSAA and a 2048-pixel shadow map. The middle tier drops to 2× MSAA and smaller shadows and reflections. The low tier renders at 0.75× without shadows, bloom or light shafts. On Auto, a governor steps down only if the frame rate stays below about 30 frames per second (20 on phones), because full quality at 40 fps beats low quality at 60. It also steps back up while the frame rate holds around 55. If a step up has to be undone soon after, that level isn't tried again for 45 seconds, then 90, and so on, so it never flip-flops. You can also pick a level yourself at the bottom of the checklist: hovering over each one says what it changes, and a pencilled note shows what Auto would pick and the current frame rate.</li>
         </ul>
 <pre><code>// redraw the sun's shadow map only while something that casts it moves
 if (rig.blending || shadowHold &gt; 0 || exploderMoved || trunkMoved) {

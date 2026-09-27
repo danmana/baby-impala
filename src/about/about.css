@@ -112,6 +112,15 @@ h2::after {
   height: 7px;
   background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 8' preserveAspectRatio='none'><path d='M2 5 C 50 2.5, 120 6.5, 198 3.2' fill='none' stroke='%238f2a1d' stroke-width='2.4' stroke-linecap='round' opacity='0.75'/></svg>") center / 100% 100% no-repeat;
 }
+h3 {
+  font-family: var(--display);
+  font-weight: 400;
+  font-size: 34px;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  margin: 44px auto 12px;
+}
+
 /* a full-width row centres the heading's own box, so keep the heading's left edge on the column */
 article > h2 { margin-left: max(0px, calc((100% - var(--col)) / 2)); }
 
@@ -243,6 +252,7 @@ figure.chart .key.after { background: var(--red); opacity: 0.85; }
   .lead { font-size: 19.5px; }
   .lead::first-letter { font-size: 74px; }
   h2 { font-size: 40px; margin-top: 50px; }
+  h3 { font-size: 30px; margin-top: 36px; }
   figure.wide, figure.pair, figure.triple { margin-left: -8px; margin-right: -8px; }
   figure.pair, figure.triple { grid-template-columns: 1fr; gap: 30px; }
   figure.pair.narrow { grid-template-columns: 1fr 1fr; gap: 14px; }

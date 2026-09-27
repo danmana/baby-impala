@@ -26,6 +26,8 @@ export class Overlay {
   private frame = 0;
   enabled = true;
   view: HotspotView | null = null;
+  /** markers for things that aren't on the car right now */
+  readonly hidden = new Set<string>();
 
   onHover: ((id: string | null) => void) | null = null;
 
@@ -81,7 +83,7 @@ export class Overlay {
     this.frame++;
     const camPos = cam.position;
     for (const m of this.markers) {
-      const show = this.enabled && this.view === m.spot.view;
+      const show = this.enabled && this.view === m.spot.view && !this.hidden.has(m.spot.id);
       if (!show) {
         if (m.visible || !m.el.classList.contains('hidden')) m.el.classList.add('hidden');
         m.visible = false;
