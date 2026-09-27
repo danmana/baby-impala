@@ -118,7 +118,7 @@ export async function loadCar(buffer: ArrayBuffer, mats: Materials): Promise<Car
     const key = src.name.replace(/\.\d+$/, '');
     // the paint's normal map needs real tangents: without them three.js derives
     // them per triangle, and on this low-poly shell that shows as facets
-    if (key.startsWith('UpCar') && m.geometry.index && m.geometry.attributes.uv && !m.geometry.attributes.tangent) {
+    if ((key.startsWith('UpCar') || key.startsWith('Indoor')) && m.geometry.index && m.geometry.attributes.uv && !m.geometry.attributes.tangent) {
       m.geometry.computeTangents();
     }
     if (m.name.startsWith('initials_trim')) m.material = trim;

@@ -140,7 +140,7 @@ export class Materials {
         side: THREE.DoubleSide,
       });
       p.name = 'paint_textured';
-      addRoadDust(p);
+      addRoadDust(p, src.map);
       this.m.set('__paint', p);
       this.extra.push(p);
       return p;
@@ -192,12 +192,24 @@ export class Materials {
       if (meshName.startsWith('BviewMirror') || meshName.startsWith('MirrorHandle')) {
         // mirror glass as dark dielectric: a metal mirror turns every lamp into a flare
         const c = this.m.get('__mirror_in') ?? keep(Object.assign(src.clone(), {
-          envMapIntensity: 0.5, metalness: 0, metalnessMap: null, roughness: 0.04, roughnessMap: null, map: null, color: new THREE.Color(0x0c0c0d),
+          envMapIntensity: 0.5, metalness: 0, metalnessMap: null, roughness: 0.04, roughnessMap: null, map: null, normalMap: null, color: new THREE.Color(0x0c0c0d),
         }));
         this.m.set('__mirror_in', c);
         return c;
       }
+      // seats, dash and trim: the atlas has near-zero roughness on the vinyl, which
+      // turned the seats into wet metal at sunset. Vinyl and cloth get a floor of
+      // 0.6; the real metal bits (marked in the metalness map) stay polished
+      const c = this.m.get('__indoor');
+      if (c) return c;
       src.envMapIntensity = 0.5;
+      src.normalScale.set(Math.abs(src.normalScale.x), Math.abs(src.normalScale.y));
+      src.onBeforeCompile = (sh) => {
+        sh.fragmentShader = sh.fragmentShader.replace('#include <metalnessmap_fragment>', `#include <metalnessmap_fragment>
+          roughnessFactor = mix(max(roughnessFactor, 0.6), max(roughnessFactor, 0.16), step(0.5, metalnessFactor));`);
+      };
+      src.customProgramCacheKey = () => 'indoor-vinyl';
+      this.m.set('__indoor', src);
       return keep(src);
     }
     if (name.startsWith('wheel')) {
@@ -219,8 +231,9 @@ export class Materials {
  * below the rocker line, broken up by noise. Lived-in, not museum-new, and kept
  * subtle so the clear coat still reads.
  */
-function addRoadDust(m: THREE.MeshPhysicalMaterial) {
+function addRoadDust(m: THREE.MeshPhysicalMaterial, atlas: THREE.Texture | null) {
   m.onBeforeCompile = (sh) => {
+    sh.uniforms.tAtlas = { value: atlas };
     sh.vertexShader = sh.vertexShader
       .replace('#include <common>', `#include <common>
         varying vec3 vDustW;`)
@@ -229,6 +242,7 @@ function addRoadDust(m: THREE.MeshPhysicalMaterial) {
     sh.fragmentShader = sh.fragmentShader
       .replace('#include <common>', `#include <common>
         varying vec3 vDustW;
+        uniform sampler2D tAtlas;
         ${NOISE}
         float roadDust() {
           float n = vnoise(vDustW.xz * 7.0 + vDustW.y * 5.0) * 0.6 + vnoise(vDustW.xz * 23.0) * 0.4;
@@ -238,19 +252,28 @@ function addRoadDust(m: THREE.MeshPhysicalMaterial) {
           return low * mix(0.45, 1.0, n);
         }`)
       .replace('#include <color_fragment>', `#include <color_fragment>
-        float dust = roadDust();
-        diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.16, 0.145, 0.13), dust * 0.32);`)
+        // The headliner, door cards and package tray are inside faces of this
+        // same shell. The source atlas paints them tan (the paint is black, the
+        // grime grey), so its warmth marks them: those areas become matte vinyl.
+        vec3 atlasCol = texture2D(tAtlas, vNormalMapUv).rgb;
+        float trim = smoothstep(0.012, 0.035, atlasCol.r - atlasCol.b);
+        float dust = roadDust() * (1.0 - trim);
+        diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.16, 0.145, 0.13), dust * 0.32);
+        diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.026, 0.025, 0.024), trim);`)
+      .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
+        roughnessFactor = mix(roughnessFactor, 0.74, trim);`)
       .replace('#include <lights_physical_fragment>', `#include <lights_physical_fragment>
         #ifdef USE_CLEARCOAT
           material.clearcoatRoughness = clamp(material.clearcoatRoughness + dust * 0.22, 0.0, 1.0);
-          material.clearcoat *= 1.0 - dust * 0.25;
-        #endif`)
+          material.clearcoat *= (1.0 - dust * 0.25) * (1.0 - trim);
+        #endif
+        material.specularColor *= 1.0 - 0.5 * trim;`)
       // the inside of the body shell (wheel wells, behind the dash) is trimmed
       // over in a real car; keep it dark instead of catching every light
       .replace('#include <opaque_fragment>', `if (!gl_FrontFacing) outgoingLight *= 0.12;
         #include <opaque_fragment>`);
   };
-  m.customProgramCacheKey = () => 'paint-road-dust';
+  m.customProgramCacheKey = () => 'paint-road-dust-trim';
 }
 
 /**
