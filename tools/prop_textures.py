@@ -334,31 +334,37 @@ def colt_textures():
 
 
 def m1911_textures():
-    """Dean's M1911A1: satin stainless (plain, and engraved with scrollwork
-    like the reference), and pearl for the grips."""
+    """Dean's M1911A1: nickel plate (plain, and engraved with scrollwork like
+    the reference), and ivory for the grips."""
     rng = np.random.default_rng(21)
     streak = np.repeat(rng.normal(0, 1, (512, 1)), 512, 1).astype(np.float32)
     streak = (streak - streak.min()) / (streak.max() - streak.min())
     blot = _wrap_noise(rng, 512, 512, 12)
-    col = 0.74 + 0.04 * (streak - 0.5) + 0.05 * (blot - 0.5)
-    rough = 0.24 + 0.06 * streak + 0.06 * (1 - blot)
-    save(_gray(col), 'm1911_plain_col')
+    # nickel: brighter and warmer than stainless, with a faint yellow cast
+    tone = 1 + 0.045 * (streak - 0.5) + 0.05 * (blot - 0.5)
+    nickel = np.array([0.8, 0.76, 0.67], np.float32)
+    col = nickel * tone[..., None]
+    rough = 0.2 + 0.05 * streak + 0.06 * (1 - blot)
+    save(Image.fromarray((col.clip(0, 1) * 255).astype(np.uint8)), 'm1911_plain_col')
     save(Image.fromarray((rough.clip(0, 1) * 255).astype(np.uint8)), 'm1911_plain_rough')
     save(_normal(np.zeros((8, 8), np.float32), 1), 'm1911_plain_nor')
     e = scrolls(512, 512, 17, spacing=40, width=2)
-    save(_gray(col * (1 - 0.62 * e)), 'm1911_engraved_col')
+    save(Image.fromarray(((col * (1 - 0.62 * e)[..., None]).clip(0, 1) * 255).astype(np.uint8)), 'm1911_engraved_col')
     save(Image.fromarray(((rough + 0.38 * e).clip(0, 1) * 255).astype(np.uint8)), 'm1911_engraved_rough')
     save(_normal(-e * 0.6, 1.2), 'm1911_engraved_nor')
-    # pearl: a creamy white with soft, drifting swirls and a faint rainbow in them
-    a = _wrap_noise(rng, 512, 512, 6)
-    b = _wrap_noise(rng, 512, 512, 14)
-    swirl = np.sin((a * 3.0 + b * 1.4) * 2 * math.pi) * 0.5 + 0.5
-    base = np.array([0.97, 0.94, 0.88], np.float32)
-    tint = np.stack([0.02 * np.sin(swirl * 6.28), 0.015 * np.sin(swirl * 6.28 + 2.1), 0.02 * np.sin(swirl * 6.28 + 4.2)], -1)
-    pcol = base * (0.9 + 0.1 * swirl[..., None]) + tint
-    save(Image.fromarray((pcol.clip(0, 1) * 255).astype(np.uint8)), 'pearl_col')
-    save(Image.fromarray(((0.3 + 0.08 * (1 - swirl)) * 255).astype(np.uint8)), 'pearl_rough')
-    save(_normal(swirl * 0.05, 1), 'pearl_nor')
+    # ivory: warm cream, a fine grain running along the grip, faint cross-hatch
+    # (the Schreger lines of real ivory) and a little yellowing in patches
+    y, x = np.mgrid[0:512, 0:512].astype(np.float32)
+    grain = np.sin(x / 512 * 2 * math.pi * 60 + _wrap_noise(rng, 512, 512, 5) * 9) * 0.5 + 0.5
+    hatch = (np.sin((x + y) / 512 * 2 * math.pi * 18) * np.sin((x - y) / 512 * 2 * math.pi * 18)) * 0.5 + 0.5
+    age = _wrap_noise(rng, 512, 512, 4)
+    ivory = np.array([0.93, 0.88, 0.76], np.float32)
+    aged = np.array([0.86, 0.77, 0.58], np.float32)
+    k = (0.25 * age)[..., None]
+    icol = (ivory * (1 - k) + aged * k) * (0.95 + 0.04 * grain[..., None] + 0.02 * hatch[..., None])
+    save(Image.fromarray((icol.clip(0, 1) * 255).astype(np.uint8)), 'ivory_col')
+    save(Image.fromarray(((0.34 + 0.06 * grain) * 255).astype(np.uint8)), 'ivory_rough')
+    save(_normal(grain * 0.04, 1), 'ivory_nor')
 
 
 def emf_textures():

@@ -33,6 +33,7 @@ Handy URL flags while developing: `?autostart` skips the start screen, `?nointro
 | `assets-src/sounds/`, `assets-src/props_tex/`, `assets-src/ui/` | Original sound files, baked prop textures and the source paper scan |
 | `tools/fetch_assets.py` | Downloads the CC0 Poly Haven and ambientCG sources (props, surfaces, HDRIs) into `assets-src/`; they're not kept in git |
 | `public/og/` | Share images (1200 × 630) for the Open Graph and X/Twitter tags: `baby.jpg` is a screenshot of the site, `about.jpg` is `tools/og-card.html` rendered in the dev server |
+| `tools/fetch_playlist.py` | Bakes a Spotify playlist into the "Real Deal" tape (`src/content/spotify-tape.json`): title, artist and id of each track with a 30-second preview, from Spotify's public embed page |
 | `tools/prop_textures.py` | Builds the wood and pegboard texture sets in `assets-src/props_tex/` from those scans (`.venv/bin/python tools/prop_textures.py`) |
 | `docs/research.md` | Research notes: trivia with episode references, trunk inventory, music |
 

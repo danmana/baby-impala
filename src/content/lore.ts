@@ -1,3 +1,4 @@
+import realDeal from './spotify-tape.json';
 /**
  * Everything the journal says. Facts come from the show and fan wikis (see
  * docs/research.md); where fandom disagrees, the text says so.
@@ -310,7 +311,7 @@ const item = (name: string, body: string[], refs?: string, note?: string): Trunk
 export const TRUNK_ITEMS: Record<string, TrunkItem> = {
   rifle: item('Hunting rifle', ['A bolt-action rifle for anything that needs to be put down from a distance. Usually loaded with silver or iron rounds.']),
   pistol: item('Dean’s Colt M1911A1', [
-    'Dean’s own gun and his firearm of choice: a stainless Colt M1911A1, engraved, with pearl grips. A .45 with seven rounds in the magazine and one in the chamber. He is rarely without it.',
+    'Dean’s own gun and his firearm of choice: a nickel-plated Colt M1911A1, engraved, with ivory grips. A .45 with seven rounds in the magazine and one in the chamber. He is rarely without it.',
     'He loads it with silver rounds for monsters, devil’s trap bullets for demons and witch-killing bullets for witches. It has been stolen from him more than once, and every time he has got it back.',
   ], 'All seasons. Sam fires it first, in “Something Wicked”.'),
   shotgun: item('Pump shotgun', ['The workhorse of the arsenal. Loaded with rock salt it drives off ghosts; with slugs it handles anything with a body.'], 'Everywhere, from the Pilot on'),
@@ -424,22 +425,13 @@ export const TAPES: Tape[] = [
   {
     id: 'real',
     label: 'THE REAL DEAL',
-    sub: 'via Spotify',
+    sub: 'all seasons',
     color: '#2b2b2b',
     kind: 'spotify',
-    tracks: [
-      { title: 'Carry On Wayward Son', artist: 'Kansas', spotify: '50XEfDqjfO5ArryPtFCd9I' },
-      { title: 'Back In Black', artist: 'AC/DC', spotify: '42h6H7zxEIP2CKRFsCZMuK' },
-      { title: 'Renegade', artist: 'Styx', spotify: '0mm40yDFxN5zV6m5cUNMM7' },
-      { title: 'Wanted Dead Or Alive', artist: 'Bon Jovi', spotify: '4jIcQJcRN720hPUnVPI27j' },
-      { title: 'Bad Moon Rising', artist: 'Creedence Clearwater Revival', spotify: '0BG2iE6McPhmAEKIhfqy1X' },
-      { title: 'Rock Of Ages', artist: 'Def Leppard', spotify: '0zOUO2Cbz0C1F8qbrebIxn' },
-      { title: 'Simple Man', artist: 'Lynyrd Skynyrd', spotify: '0FTKlr5Ox1V00wNcZKYmcr' },
-      { title: 'Smoke On The Water', artist: 'Deep Purple', spotify: '39xwg2bRxIozU84vrRgqXE' },
-      { title: 'Don’t Fear the Reaper', artist: 'Blue Öyster Cult', spotify: '7H1E4sqAN1rsDsEtn7IWv2' },
-      { title: 'Thunderstruck', artist: 'AC/DC', spotify: '57bgtoPSgt236HzfBOd8kj' },
-      { title: 'Eye of the Tiger', artist: 'Survivor', spotify: '2KH16WveTQWT6KOG9Rg6e2' },
-    ],
+    // "Supernatural Soundtrack [All Seasons]" by Solitude Collective, baked in by
+    // tools/fetch_playlist.py (every track has Spotify's 30-second preview, so the
+    // tape plays for everyone; full tracks when logged in to Spotify in the same browser)
+    tracks: realDeal.tracks.map((t) => ({ title: t.title, artist: t.artist, spotify: t.spotify, seconds: t.seconds })),
   },
 ];
 

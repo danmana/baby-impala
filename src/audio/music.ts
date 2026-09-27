@@ -23,6 +23,8 @@ export interface DeckState {
   position: number;
   duration: number;
   loading: boolean;
+  /** a short note for the song label, when something needs saying */
+  hint: string | null;
 }
 
 /**
@@ -41,6 +43,11 @@ export class MusicPlayer {
   private spotifyDur = 0;
   private spotifyReady: Promise<SpotifyIFrameAPI> | null = null;
   loading = false;
+  private hint: string | null = null;
+  private stall = 0;
+  private userPaused = false;
+  private endTimer = 0;
+  private lastSpotifyPos = 0;
   onUpdate: ((s: DeckState) => void) | null = null;
   spotifyHost: HTMLElement | null = null;
 
@@ -62,6 +69,7 @@ export class MusicPlayer {
       position: spot ? this.spotifyPos : this.el.currentTime || 0,
       duration: spot ? this.spotifyDur : this.el.duration || this.track.seconds || 0,
       loading: this.loading,
+      hint: this.hint,
     };
   }
 
@@ -85,10 +93,7 @@ export class MusicPlayer {
     if (this.tape.kind === 'spotify') {
       const c = await this.ensureSpotify();
       if (!c) return;
-      c.loadUri(`spotify:track:${this.track.spotify}`);
-      c.play();
-      this.playing = true;
-      this.emit();
+      this.startSpotify(c);
       return;
     }
     this.connect();
@@ -105,7 +110,33 @@ export class MusicPlayer {
     this.emit();
   }
 
+  /**
+   * Ask the embed to play and wait for it to say so. The deck only lights up
+   * on Spotify's own playback updates; if nothing starts (the browser blocked
+   * it, or the track has no preview), say so instead of sitting there silent.
+   */
+  private startSpotify(c: SpotifyController) {
+    clearTimeout(this.endTimer);
+    this.userPaused = false;
+    this.lastSpotifyPos = 0;
+    c.loadUri(`spotify:track:${this.track.spotify}`);
+    c.play();
+    this.hint = null;
+    this.loading = true;
+    this.emit();
+    clearTimeout(this.stall);
+    this.stall = window.setTimeout(() => {
+      if (this.playing) return;
+      this.loading = false;
+      this.hint = 'press play in the Spotify player';
+      this.emit();
+    }, 6000);
+  }
+
   pause() {
+    clearTimeout(this.stall);
+    clearTimeout(this.endTimer);
+    this.userPaused = true;
     if (this.tape.kind === 'spotify') this.spotify?.pause();
     else this.el.pause();
     this.playing = false;
@@ -136,8 +167,9 @@ export class MusicPlayer {
       this.loadLocal();
       if (resume) void this.play();
     } else if (this.spotify && resume) {
+      this.startSpotify(this.spotify);
+    } else if (this.spotify) {
       this.spotify.loadUri(`spotify:track:${this.track.spotify}`);
-      this.spotify.play();
     }
     this.emit();
   }
@@ -150,6 +182,7 @@ export class MusicPlayer {
     this.trackIndex = 0;
     this.el.removeAttribute('src');
     this.el.load();
+    this.hint = null;
     if (this.tape.kind !== 'spotify') this.teardownSpotify();
     this.emit();
     if (wasPlaying || this.tape.kind === 'spotify') void this.play();
@@ -190,8 +223,27 @@ export class MusicPlayer {
         c.addListener('playback_update', (e) => {
           this.spotifyPos = e.data.position / 1000;
           this.spotifyDur = e.data.duration / 1000;
+          const was = this.playing;
           this.playing = !e.data.isPaused;
-          this.loading = false;
+          if (this.playing) {
+            this.loading = false;
+            this.hint = null;
+          }
+          // a track (or its 30-second preview) ran out on its own: on to the next, like a tape
+          const nearEnd = this.spotifyDur > 0 && (this.spotifyPos >= this.spotifyDur - 1 || this.spotifyPos === 0);
+          if (was && !this.playing && !this.userPaused && nearEnd && this.lastSpotifyPos >= this.spotifyDur - 2) {
+            this.next(true);
+            return;
+          }
+          this.lastSpotifyPos = this.spotifyPos;
+          // some previews end on a last "still playing" update at the very end and
+          // then go quiet: if nothing follows, treat that as the end too
+          clearTimeout(this.endTimer);
+          if (this.playing && this.spotifyDur > 0 && this.spotifyPos >= this.spotifyDur - 0.4) {
+            this.endTimer = window.setTimeout(() => {
+              if (this.playing && !this.userPaused && this.tape.kind === 'spotify') this.next(true);
+            }, 1500);
+          }
           this.emit();
         });
         this.loading = false;

@@ -201,6 +201,7 @@ export class Hud {
       h('div', { class: 'credits', html:
         'Base 3D model: <a href="https://sketchfab.com/3d-models/chevrolet-impala-1967-bce35ef0c10d41fdb3f7d8c4225144d2" target="_blank" rel="noopener">“Chevrolet Impala 1967”</a> by <a href="https://sketchfab.com/Eques_inferno" target="_blank" rel="noopener">Eques_inferno</a>, CC BY 4.0, adapted. ' +
         'Music on the local tapes by Kevin MacLeod (<a href="https://incompetech.com" target="_blank" rel="noopener">incompetech.com</a>), CC BY 4.0. ' +
+        'The Real Deal tape plays <a href="https://open.spotify.com/playlist/1IEQ8C3G1qT0W80muYgROT" target="_blank" rel="noopener">“Supernatural Soundtrack [All Seasons]”</a> by Solitude Collective through Spotify’s player. ' +
         'HDRIs, textures and trunk props from <a href="https://polyhaven.com" target="_blank" rel="noopener">Poly Haven</a> and <a href="https://ambientcg.com" target="_blank" rel="noopener">ambientCG</a> (CC0). ' +
         'Engine and door sounds: Joseph Sardin, <a href="https://bigsoundbank.com" target="_blank" rel="noopener">BigSoundBank</a> (CC0); tape deck and creak: PDSounds (public domain). ' +
         'Fonts: League Gothic, Special Elite, Reenie Beanie, UnifrakturMaguntia (OFL / Apache 2.0).' }),

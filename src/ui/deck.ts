@@ -95,8 +95,10 @@ export class Deck {
     this.playBtn.setAttribute('aria-label', s.playing ? 'Pause' : 'Play');
     this.led.classList.toggle('on', s.playing);
     this.title.textContent = s.track.title;
-    const time = s.tape.kind === 'spotify' ? 'on Spotify' : `${fmt(s.position)} / ${fmt(s.duration)}`;
-    this.meta.textContent = `${s.track.artist} · ${s.loading ? 'loading…' : time}`;
+    const time = s.tape.kind === 'spotify'
+      ? s.duration > 0 && s.playing ? `${fmt(s.position)} / ${fmt(s.duration)} on Spotify` : 'on Spotify'
+      : `${fmt(s.position)} / ${fmt(s.duration)}`;
+    this.meta.textContent = `${s.track.artist} · ${s.hint ?? (s.loading ? 'loading…' : time)}`;
     this.mobile.replaceChildren(h('b', {}, s.track.title), s.track.artist);
     // the needle drifts across the band as the song plays
     const f = s.duration > 0 ? s.position / s.duration : 0;

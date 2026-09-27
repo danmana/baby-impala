@@ -440,7 +440,7 @@ def colt(name):
 
 
 def m1911(name):
-    """Dean's gun: a stainless Colt M1911A1, engraved all over, with pearl
+    """Dean's gun: a nickel-plated Colt M1911A1, engraved all over, with ivory
     grips, gold medallions and polished screws (after the reference photo).
     Profile in XY with the muzzle towards +X, the controls on the +Z side.
     Sets obj['hang_du']: where a peg through the trigger guard goes, from the
@@ -481,11 +481,11 @@ def m1911(name):
         parts.append(o)
     catch = L.cylinder(name + '_catch', 0.0042, 0.0026, (-0.031, -0.019, fw / 2 + 0.0008), axis='Z', segments=16, bevel=0.0006)
     parts.append(_tex(catch, 'm1911_engraved', 1.0))
-    # pearl grips with a gold medallion and two screws, both sides; the lanyard loop
+    # ivory grips with a gold medallion and two screws, both sides; the lanyard loop
     panel = [(-0.034, -0.016), (-0.044, -0.05), (-0.052, -0.08), (-0.056, -0.098), (-0.082, -0.1), (-0.08, -0.08), (-0.075, -0.05),
              (-0.072, -0.02), (-0.074, -0.014)][::-1]
     for zs in (1, -1):
-        g = _outline_part(name + '_pearl', panel, 0.0048, 'pearl', 0.0018)
+        g = _outline_part(name + '_ivory', panel, 0.0048, 'ivory', 0.0018, metal=0.0)
         g.data.transform(Matrix.Translation((0, 0, zs * (fw / 2 + 0.0022))))
         parts.append(g)
         zf = zs * (fw / 2 + 0.0046)
