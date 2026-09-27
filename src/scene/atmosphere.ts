@@ -300,7 +300,9 @@ export class Atmosphere {
     this.beams.push(beam);
     const half = Math.acos(beam.cos);
     const radius = Math.tan(half) * length * 1.08;
-    const geo = new THREE.CylinderGeometry(0.02, radius, length, 48, 1, true);
+    // closed at both ends: the shaft is drawn from its inside faces, so a view ray
+    // that left through an open far end drew nothing, and the beam ended in a hard arc
+    const geo = new THREE.CylinderGeometry(0.02, radius, length, 48, 1, false);
     geo.translate(0, -length / 2, 0);
     geo.rotateZ(Math.PI / 2); // apex at the origin, opening along +X
     const mat = new THREE.ShaderMaterial({
