@@ -666,6 +666,25 @@ async function main() {
   let fpsFrames = 0;
   let fpsTime = 0;
 
+  // the EMF meter in the trunk is picking something up: the first two LEDs stay
+  // lit and the reading flickers between two and five, filling left to right
+  let emfLevel = 3;
+  let emfTarget = 3;
+  let emfHold = 0;
+  function updateEmf(dt: number) {
+    emfHold -= dt;
+    if (emfHold <= 0) {
+      emfTarget = 2 + Math.random() * 3.2;
+      emfHold = reduced ? 1.2 : 0.08 + Math.random() * 0.35;
+    }
+    emfLevel += (emfTarget - emfLevel) * Math.min(1, dt * 14);
+    car.emfLeds.forEach((m, i) => {
+      const on = i < 2 || i + 0.5 < emfLevel;
+      // bright enough to bloom, not so bright that tone mapping turns it orange
+      m.emissiveIntensity += ((on ? 1.7 : 0) - m.emissiveIntensity) * Math.min(1, dt * 30);
+    });
+  }
+
   // ---------------------------------------------------------------- loop
   const timer = new THREE.Timer();
   let t = 0;
@@ -728,7 +747,9 @@ async function main() {
     atmo.update(dt, t, live.haze, live.fogColor);
     exploder.update(dt);
     trunk.update(dt);
-    showArsenal(trunk.progress > 0.001 || exploder.progress > 0.001 || director.view === 'trunk');
+    const arsenalOn = trunk.progress > 0.001 || exploder.progress > 0.001 || director.view === 'trunk';
+    showArsenal(arsenalOn);
+    if (arsenalOn) updateEmf(dt);
     // the trunk fill comes up as the lid opens, not before
     if (director.view === 'trunk') lights.cabinTarget = 1.6 * THREE.MathUtils.clamp((trunk.progress - 0.25) / 0.5, 0, 1);
     car.plateFront.update(dt);

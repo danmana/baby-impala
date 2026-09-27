@@ -437,7 +437,8 @@ def build(fa=None, ra=None):
     items.append(lay('bandolier', P.bandolier('p'), -2.17, -0.20, 94, lift=0.035, flat_it=False))
     # no lane left for it: it lies across the rifle, the way guns pile up in a trunk
     items.append(lay('sawed_off', P.sawed_off('p'), -2.355, 0.33, 92, lift=0.05))
-    items.append(lay('emf', P.emf('p'), -2.165, 0.50, 0, flat_it=False))
+    # turned so its meter reads from behind the car and the LEDs run left to right
+    items.append(lay('emf', P.emf('p'), -2.20, 0.50, -90, flat_it=False))
     items.append(lay('lock_picks', P.lockpicks('p'), -2.36, -0.655, 0, flat_it=False))
 
     # ---------------------------------------------------------------- front-left: ammo and salt

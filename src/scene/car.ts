@@ -11,6 +11,8 @@ export interface CarParts {
   meshes: THREE.Mesh[];
   plateFront: Plate;
   plateRear: Plate;
+  /** the EMF meter's five LEDs, left to right */
+  emfLeds: THREE.MeshStandardMaterial[];
 }
 
 const OWN_MATS = new Set([
@@ -99,6 +101,14 @@ export async function loadCar(buffer: ArrayBuffer, mats: Materials): Promise<Car
   const door = new THREE.MeshStandardMaterial({ map: doorTex, roughness: 0.3, envMapIntensity: 0.6 });
   mats.extra.push(trim, dial, door);
 
+  const emfLeds: THREE.MeshStandardMaterial[] = [];
+  const led = (i: number) => {
+    if (!emfLeds[i]) {
+      emfLeds[i] = new THREE.MeshStandardMaterial({ color: 0x3a0606, emissive: 0xe00200, emissiveIntensity: 0, roughness: 0.25 });
+      mats.extra.push(emfLeds[i]);
+    }
+    return emfLeds[i];
+  };
   gltf.scene.traverse((o) => {
     byName.set(o.name, o);
     const m = o as THREE.Mesh;
@@ -109,6 +119,7 @@ export async function loadCar(buffer: ArrayBuffer, mats: Materials): Promise<Car
     if (m.name.startsWith('initials_trim')) m.material = trim;
     else if (m.name.startsWith('tape_deck_dial')) m.material = dial;
     else if (m.name.startsWith('tape_deck_door')) m.material = door;
+    else if (/^emf_led_\d$/.test(key)) m.material = led(Number(key.slice(-1)));
     else if (OWN_MATS.has(key)) m.material = mats.get(key)!;
     else m.material = mats.upgrade(src, m.name);
     // refractive glass (KHR_materials_transmission from the scanned bottles)
@@ -161,5 +172,5 @@ export async function loadCar(buffer: ArrayBuffer, mats: Materials): Promise<Car
   };
   const plateFront = mkPlate('anchor_plate_front');
   const plateRear = mkPlate('anchor_plate_rear');
-  return { root, byName, meshes, plateFront, plateRear };
+  return { root, byName, meshes, plateFront, plateRear, emfLeds };
 }

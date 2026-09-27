@@ -183,8 +183,8 @@ gl_Position = p.xyww;   // depth is always 1.0: the sky never gets closer</code>
         <p>Next, Dan sent reference photos for a handful of the most recognisable pieces, and they were rebuilt to match:</p>
         <ul>
           <li><strong>The Colt</strong> is a Paterson revolver in antiqued silver now. It has a long octagonal barrel with three bands at the muzzle and "non timebo mala" along it in blackletter, floral scrollwork on the frame and lug, a banded cylinder and a walnut grip with a pentagram burned into it. It lies in a black case with its thirteen rounds standing in a rack below, each one numbered by hand. The textures are generated: scrollwork drawn as curling stems with leaves, the motto set in UnifrakturMaguntia (an OFL font), the numbers in the journal's handwriting.</li>
-          <li><strong>Dean's own gun</strong> replaced the generic pistol on the board. It's a stainless Colt M1911A1, engraved all over, with pearl grips, gold medallions and polished screws. It hangs by its trigger guard.</li>
-          <li><strong>The EMF meter</strong> is the one the brothers carry for most of the show, not the Walkman Dean built in "Phantom Traveler". It's a bare green perfboard with an analogue meter, five red LEDs, a telescopic aerial wound with a red coil, a copper spring, loops of coloured wire and a toggle switch. It used to be hidden under the rifle, so it moved to its own spot in the tray.</li>
+          <li><strong>Dean's own gun</strong> replaced the generic pistol on the board. It's a stainless Colt M1911A1, engraved all over, with pearl grips, gold Colt medallions (the rampant colt on black) and polished screws. It hangs by its trigger guard.</li>
+          <li><strong>The EMF meter</strong> is the one the brothers carry for most of the show, not the Walkman Dean built in "Phantom Traveler". It's a bare green perfboard with an analogue meter, five red LEDs, a telescopic aerial wound with a red coil, a copper spring, loops of coloured wire and a toggle switch. It used to be hidden under the rifle, so it moved to its own spot in the tray, turned so the meter reads from behind the car. Its LEDs are live: the first two always lit, the other three flickering on and off, left to right, as if the reading were wandering between two and five. Each LED has its own material, so the page can light them one by one.</li>
           <li><strong>Both shotguns</strong> looked like plastic. They're now blued steel with worn edges and fine scratches, and walnut, and the sawed-off has a proper side-by-side action and pistol grip. The sawed-off also used to poke out through the left wall of the tray. A small script now prints every tray item's footprint and flags anything that crosses a wall or overlaps a neighbour. There's no free lane left for it, so it lies across the rifle, the way guns pile up in a real trunk.</li>
         </ul>
 
@@ -227,14 +227,15 @@ gl_Position = p.xyww;   // depth is always 1.0: the sky never gets closer</code>
           <figcaption>From the driver's seat: the thin wheel, the tan dash, the deck, and the Legos in the defroster vent.</figcaption>
         </figure>
 
-        <p>The next round moved the dash's diagonal edge 5.5 centimetres towards the passenger side, because from the driver's seat it still clipped the deck's right-hand end. The deck itself was redone after photos of Baby's own. It has a wide dial window with FM over AM and DX and LOC markers, square grey buttons, and the cassette door underneath with a script badge and a model block. The dial and the door are painted in the page on canvases. Their first version came out upside down: glTF counts texture rows from the top, the canvas default counts from the bottom.</p>
+        <p>The dash took two rounds. From the driver's seat the radio's right-hand end still seemed to disappear into the dash's diagonal, so I moved the diagonal edge 5.5 centimetres, and Dan sent back a screenshot showing no change. Ray tests from the site's camera said nothing covered the radio's face at all. Casting rays at the tan surface on screen showed why: the diagonal you see is a raised block whose left edge starts right under the middle of the radio, and the radio's right end was buried in it. So nothing was in front of the face, but the box sat half inside the block. I tried the fix live in the browser by moving vertices on the loaded model, then wrote it into the build: the whole block slides 6 centimetres towards the passenger side, and the radio sits in the black recess with clear space round it.</p>
+        <p>The deck itself was redone after photos of Baby's own, a Rampage by Audiovox AV2000. It has a wide dial window with FM over AM and DX and LOC markers, square grey buttons, and the cassette door underneath with the red Rampage script and the AV2000 block. The dial and the door are painted in the page on canvases. Their first version came out upside down: glTF counts texture rows from the top, the canvas default counts from the bottom.</p>
 
         <figure class="photo tilt-l">
           <img src="/about/deck.webp" width="900" height="400" loading="lazy" alt="The redone cassette deck in the dash: a lit FM/AM dial with a red needle, DX and LOC markers, grey buttons and a black cassette door with a red script badge." />
           <figcaption>The deck, after photos of the real one.</figcaption>
         </figure>
 
-        <p>The green cooler rides on the back seat too: a vintage steel cooler in green enamel with a cream band at the lid, a chrome latch, handles at the ends and a diamond badge. It's on the passenger side, back against the seat, like in Dan's photo. It has its own sigil and page: mostly beer, sometimes smoothies, and once a head.</p>
+        <p>The green cooler rides on the back seat too: a vintage steel Coleman cooler in green enamel with a cream band at the lid, a chrome latch, handles at the ends and the Coleman diamond badge. It's on the passenger side, back against the seat, like in Dan's photo. It has its own sigil and page: mostly beer, sometimes smoothies, and once a head.</p>
 
         <p>Lighting the cabin was a surprise. The obvious move is a point light in the cabin, but a light just behind the camera bounces straight back off the rear-view mirror as a flare. It also turned every bit of trim into a row of bright dots and lit up the insides of the fenders through the footwell. The cabin now gets sky fill instead, from a hemisphere light that adds soft diffuse light and no highlights, warmed so the tan dash reads as tan. The mirror became dark glass, which is what a rear-view mirror is at night.</p>
 
@@ -283,7 +284,7 @@ gl_Position = p.xyww;   // depth is always 1.0: the sky never gets closer</code>
           </div>
           <div class="photo tilt-l">
             <img src="/about/ui_deck.webp" width="700" height="400" loading="lazy" alt="The cassette deck: FM/AM dial with a red needle, olive push buttons, a cassette labelled mullet rock side A, and a taped song label reading Big Rock by Kevin MacLeod." />
-            <figcaption>The Hunter 2000 and the song taped under it.</figcaption>
+            <figcaption>The AV2000 and the song taped under it.</figcaption>
           </div>
         </figure>
 

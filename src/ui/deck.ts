@@ -60,7 +60,7 @@ export class Deck {
           btn(ICONS.eject, 'Switch cassette', () => this.eject()),
         ),
         h('div', { class: 'row', style: 'margin-top:7px;justify-content:space-between' },
-          h('span', { class: 'brand' }, 'Hunter 2000'), this.led),
+          h('span', { class: 'brand' }, 'Audiovox AV2000'), this.led),
         this.mobile,
       ),
       h('div', { class: 'song sheet' }, h('span', { class: 'tape' }), this.title, this.meta),

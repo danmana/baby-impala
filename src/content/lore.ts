@@ -202,7 +202,7 @@ export const HOTSPOTS: Hotspot[] = [
       kicker: 'Driver picks the music.',
       title: 'The tape deck',
       body: [
-        'An aftermarket cassette deck set into the dash: a wide FM/AM dial window with DX and LOC markers, square grey buttons either side, and the cassette door underneath.',
+        'An aftermarket cassette deck set into the dash, a Rampage by Audiovox AV2000: a wide FM/AM dial window with DX and LOC markers, square grey buttons either side, and the cassette door underneath.',
         '“Black Sabbath, Motörhead, Metallica? It’s the greatest hits of mullet rock.” “House rules, Sammy. Driver picks the music, shotgun shuts his cakehole.”',
         'When Sam wires in an iPod jack while Dean is in Hell, Dean rips it out as soon as he is back.',
       ],

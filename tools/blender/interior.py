@@ -71,11 +71,12 @@ def army_man(name):
 
 
 def clear_centre_stack():
-    """The passenger half of the base model's dash starts in a diagonal right
-    beside the centre, and from the driver's seat that raised edge covers the
-    deck's right-hand end. Slide the diagonal 5.5 cm towards the passenger
-    side: its lower end is the vertex column at y = -0.031, its upper end the
-    one at y = -0.206 below the top of the dash."""
+    """The passenger half of the base model's dash is a raised block whose
+    diagonal left edge starts right under the middle of the centre stack, so
+    the deck's right-hand end was buried in it. Slide that block 6 cm towards
+    the passenger side (its left edge columns at y = 0 and y = -0.187, front
+    edge and back wall alike), and the recess lip under it 11.5 cm, so the
+    deck sits in the black recess with clear space round its right end."""
     o = bpy.data.objects.get('Desktop_Indoor')
     if o is None:
         return
@@ -84,8 +85,10 @@ def clear_centre_stack():
     moved = 0
     for v in o.data.vertices:
         p = mw @ v.co
-        if abs(p.y + 0.031) < 0.004 or (abs(p.y + 0.206) < 0.004 and p.z < 0.93):
-            p.y -= 0.055
+        lip = abs(p.y + 0.031) < 0.004 or (abs(p.y + 0.206) < 0.004 and p.z < 0.93)
+        edge = (abs(p.y) < 0.005 or abs(p.y + 0.187) < 0.005) and p.z < 0.955 and p.x < 1.0
+        if lip or edge:
+            p.y -= 0.115 if lip else 0.06
             v.co = inv @ p
             moved += 1
     o.data.update()

@@ -489,8 +489,14 @@ def m1911(name):
         g.data.transform(Matrix.Translation((0, 0, zs * (fw / 2 + 0.0022))))
         parts.append(g)
         zf = zs * (fw / 2 + 0.0046)
-        parts.append(_tex(L.cylinder(name + '_med', 0.0056, 0.0012, (-0.058, -0.047, zf), axis='Z', segments=18, bevel=0.0003),
-                          'brass', 1.0))
+        med = L.cylinder(name + '_med', 0.0056, 0.0012, (-0.058, -0.047, zf), axis='Z', segments=18, bevel=0.0003)
+        # the rampant colt, the right way round from either side
+        muv = med.data.uv_layers.active or med.data.uv_layers.new(name='UVMap')
+        for lp in med.data.loops:
+            co = med.data.vertices[lp.vertex_index].co
+            muv.data[lp.index].uv = (0.5 + zs * (co.x + 0.058) / 0.0112, 0.5 + (co.y + 0.047) / 0.0112)
+        med.data.materials.append(PH.tex_material('colt_medallion', 1.0))
+        parts.append(med)
         for (sx, sy) in ((-0.051, -0.024), (-0.07, -0.091)):
             parts.append(_tex(L.cylinder(name + '_scr', 0.0031, 0.0014, (sx, sy, zf), axis='Z', segments=12, bevel=0.0005), Pn, 1.0))
     ring = L.lathe(name + '_lan', [(-0.0012, 0.0028), (0.0012, 0.0028), (0.0012, 0.0045), (-0.0012, 0.0045)], segments=14, axis='Y',
@@ -681,8 +687,9 @@ def emf(name):
     for i in range(5):
         x = -0.034 + 0.021 * i
         parts.append(L.cylinder(name + '_ledb', 0.0026, 0.004, (x, H / 2 - 0.004, top + 0.003), axis='Y', segments=10, mat='nickel'))
+        # one material per LED, so the site can light them one by one (left to right)
         led = L.lathe(name + '_led', [(0.0, 0.0), (0.0, 0.0026), (0.005, 0.0026), (0.0065, 0.0019), (0.0075, 0.0)], segments=12,
-                      axis='Y', center=(x, H / 2 - 0.002, top + 0.003), mat='led_red')
+                      axis='Y', center=(x, H / 2 - 0.002, top + 0.003), mat=f'emf_led_{i}')
         parts.append(led)
     # resistors and capacitors along the top
     for i, (x, m) in enumerate(((-0.028, 'plastic_olive'), (-0.01, 'paper'), (0.012, 'paper'), (0.032, 'plastic_olive'))):

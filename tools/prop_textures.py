@@ -461,8 +461,8 @@ def cooler_textures():
     save(Image.fromarray((col.clip(0, 1) * 255).astype(np.uint8)), 'cooler_green_col')
     save(Image.fromarray(((0.3 + 0.1 * flake + 0.25 * sc).clip(0, 1) * 255).astype(np.uint8)), 'cooler_green_rough')
     save(_normal(flake * 0.05 - sc * 0.3, 1.0), 'cooler_green_nor')
-    # the badge: a diamond of light and grey triangles with a red plate in the middle
-    w, h = 256, 144
+    # the badge: a diamond of light and grey triangles, the red Coleman plate in the middle
+    w, h = 512, 288
     img = Image.new('RGB', (w, h), (232, 232, 226))
     d = ImageDraw.Draw(img)
     n = 8
@@ -471,12 +471,36 @@ def cooler_textures():
             x0, y0 = i * w / n, j * h / (n / 2)
             shade = (205, 208, 204) if (i + j) % 2 else (240, 240, 236)
             d.polygon([(x0, y0), (x0 + w / n, y0), (x0 + w / (2 * n), y0 + h / n)], fill=shade)
-    d.rectangle([w * 0.36, h * 0.4, w * 0.64, h * 0.6], fill=(196, 34, 30))
-    d.line([(w * 0.4, h * 0.5), (w * 0.6, h * 0.5)], fill=(245, 230, 220), width=3)
+    d.rounded_rectangle([w * 0.33, h * 0.38, w * 0.67, h * 0.62], radius=6, fill=(196, 34, 30))
+    script = ImageFont.truetype(os.path.join(ROOT, 'public', 'fonts', 'ReenieBeanie-Regular.ttf'), 64)
+    d.text((w * 0.5, h * 0.5), 'Coleman', font=script, fill=(250, 244, 236), anchor='mm', stroke_width=2, stroke_fill=(250, 244, 236))
     b = np.asarray(img).astype(np.float32) / 255
     save(Image.fromarray((b * 255).astype(np.uint8)), 'cooler_badge_col')
     save(Image.fromarray(np.full((8, 8), 70, np.uint8)), 'cooler_badge_rough')
     save(_normal(np.zeros((8, 8), np.float32), 1), 'cooler_badge_nor')
+
+
+def colt_medallion():
+    """The gold medallion on Dean's pearl grips: a black enamel disc with a
+    rampant colt in gold, and a gold rim."""
+    S = 256
+    img = Image.new('RGB', (S, S), (212, 170, 78))
+    d = ImageDraw.Draw(img)
+    r = S * 0.4
+    d.ellipse([S / 2 - r, S / 2 - r, S / 2 + r, S / 2 + r], fill=(16, 14, 12))
+    # a rearing colt facing left, on its hind legs (unit box, y down)
+    horse = [(0.30, 0.13), (0.37, 0.08), (0.42, 0.12), (0.47, 0.22), (0.56, 0.30), (0.66, 0.36), (0.73, 0.46),
+             (0.74, 0.58), (0.79, 0.74), (0.86, 0.9), (0.8, 0.91), (0.72, 0.78), (0.66, 0.68), (0.61, 0.72),
+             (0.63, 0.9), (0.57, 0.91), (0.55, 0.74), (0.5, 0.62), (0.42, 0.53), (0.33, 0.47), (0.27, 0.42),
+             (0.2, 0.47), (0.17, 0.43), (0.25, 0.36), (0.33, 0.39), (0.37, 0.35), (0.28, 0.3), (0.19, 0.3),
+             (0.17, 0.25), (0.28, 0.24), (0.34, 0.24), (0.33, 0.19), (0.25, 0.2)]
+    k, o = S * 0.56, S * 0.22
+    d.polygon([(o + x * k, o + y * k) for x, y in horse], fill=(222, 182, 90))
+    d.ellipse([S / 2 - r, S / 2 - r, S / 2 + r, S / 2 + r], outline=(236, 200, 110), width=4)
+    save(img, 'colt_medallion_col')
+    rough = np.where(np.asarray(img).astype(np.float32).mean(2) < 60, 0.45, 0.28)
+    save(Image.fromarray((rough * 255).astype(np.uint8)), 'colt_medallion_rough')
+    save(_normal(np.zeros((8, 8), np.float32), 1), 'colt_medallion_nor')
 
 
 if __name__ == '__main__':
@@ -497,4 +521,5 @@ if __name__ == '__main__':
     emf_textures()
     blued()
     cooler_textures()
+    colt_medallion()
     print('pegboard grid', pegboard())

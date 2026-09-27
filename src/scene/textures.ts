@@ -264,21 +264,36 @@ export function drawDeckDoor(width = 1024, height = 168): HTMLCanvasElement {
   ctx.strokeStyle = 'rgba(200,200,200,0.25)';
   ctx.lineWidth = 2;
   ctx.strokeRect(40, 18, flapW - 40, height - 36);
+  // "High-Fi CASSETTE" with a little tape mark, the red Rampage script, BY AUDIOVOX under it
   ctx.fillStyle = '#9a9a9a';
   ctx.textBaseline = 'middle';
-  ctx.font = '26px "Special Elite", monospace';
-  ctx.fillText('High-Fi', 78, 66);
-  ctx.fillText('CASSETTE', 78, 100);
+  ctx.font = '24px Arial, sans-serif';
+  ctx.fillText('High-Fi', 70, 64);
+  ctx.fillText('CASSETTE', 70, 98);
+  ctx.strokeStyle = '#9a9a9a';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(162, 52, 30, 18);
+  ctx.beginPath();
+  ctx.arc(171, 61, 3, 0, Math.PI * 2);
+  ctx.arc(183, 61, 3, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.save();
+  ctx.translate(250, 84);
+  ctx.transform(1, 0, -0.18, 1, 0, 0);
   ctx.fillStyle = ctx.strokeStyle = '#e0261f';
-  ctx.font = 'bold 96px "Reenie Beanie", cursive';
-  ctx.lineWidth = 4;
-  ctx.strokeText('Hunter', 290, 86);
-  ctx.fillText('Hunter', 290, 86);
+  ctx.font = 'bold 100px "Reenie Beanie", cursive';
+  ctx.lineWidth = 5;
+  ctx.strokeText('Rampage', 0, 0);
+  ctx.fillText('Rampage', 0, 0);
+  ctx.restore();
+  ctx.fillStyle = '#c9c9c9';
+  ctx.font = 'bold 20px Arial, sans-serif';
+  ctx.fillText('BY AUDIOVOX', 372, 126);
   // the model block
   ctx.fillStyle = '#1a1a1a';
   ctx.fillRect(flapW + 16, 18, width - flapW - 34, height - 36);
   ctx.fillStyle = '#8c8c8c';
-  ctx.font = 'italic 54px "League Gothic", "Arial Narrow", sans-serif';
-  ctx.fillText('HT2000', flapW + 60, 92);
+  ctx.font = 'italic bold 58px Arial, sans-serif';
+  ctx.fillText('AV2000', flapW + 60, 92);
   return c;
 }
