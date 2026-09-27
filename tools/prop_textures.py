@@ -503,6 +503,54 @@ def colt_medallion():
     save(_normal(np.zeros((8, 8), np.float32), 1), 'colt_medallion_nor')
 
 
+def duct_tape_textures():
+    """Duct tape: the outside is silver cloth tape (a fine weave showing
+    through, a few creases); each side shows the wound layers and the
+    cardboard core. The side map is planar over the roll's diameter."""
+    rng = np.random.default_rng(61)
+    # outside: one tile is 1/6 of the way round (u) by the tape's width (v)
+    w = h = 512
+    y, x = np.mgrid[0:h, 0:w].astype(np.float32)
+    weft = 0.5 + 0.5 * np.sin(x / w * 2 * math.pi * 44)
+    warp = 0.5 + 0.5 * np.sin(y / h * 2 * math.pi * 40)
+    weave = (weft * warp) ** 0.6
+    blot = _wrap_noise(rng, w, h, 8)
+    crease = Image.new('L', (w, h), 0)
+    d = ImageDraw.Draw(crease)
+    for _ in range(9):
+        x0, y0 = rng.random() * w, rng.random() * h
+        a = rng.normal(math.pi / 2, 0.5)
+        l = rng.random() * 160 + 40
+        d.line([(x0, y0), (x0 + math.cos(a) * l, y0 + math.sin(a) * l)], fill=255, width=2)
+    cr = np.asarray(crease.filter(ImageFilter.GaussianBlur(1.5))).astype(np.float32) / 255
+    col = 0.5 + 0.07 * (weave - 0.5) + 0.06 * (blot - 0.5) - 0.12 * cr
+    save(Image.fromarray((np.stack([col, col * 1.0, col * 1.03], -1).clip(0, 1) * 255).astype(np.uint8)), 'ducttape_outer_col')
+    save(Image.fromarray(((0.42 + 0.14 * (1 - weave) + 0.1 * cr).clip(0, 1) * 255).astype(np.uint8)), 'ducttape_outer_rough')
+    save(_normal(weave * 0.25 - cr * 0.8, 1.2), 'ducttape_outer_nor')
+    # sides: centre at the middle of the image, the image spans the outer diameter
+    S = 512
+    yy, xx = np.mgrid[0:S, 0:S].astype(np.float32)
+    rr = np.hypot(xx - S / 2 + 0.5, yy - S / 2 + 0.5) / (S / 2)       # 1.0 at the outer edge
+    RI, RC = 0.038 / 0.055, 0.0412 / 0.055                            # core inside, core outside
+    layers = rng.random(70).astype(np.float32)
+    idx = np.clip(((rr - RC) / (1 - RC) * 69).astype(int), 0, 69)
+    band = 0.5 + 0.08 * layers[idx]
+    tape = np.stack([band, band, band * 1.02], -1)
+    card = np.array([0.52, 0.39, 0.25], np.float32) * (0.9 + 0.12 * _wrap_noise(rng, S, S, 20))[..., None]
+    col = np.where((rr >= RC)[..., None], tape, card)
+    col = np.where((rr < RI)[..., None], card * 0.6, col)
+    col *= np.clip(1.4 - 0.4 * rr, 0.8, 1.0)[..., None]
+    save(Image.fromarray((col.clip(0, 1) * 255).astype(np.uint8)), 'ducttape_side_col')
+    rough = np.where(rr >= RC, 0.5 + 0.1 * layers[idx], 0.85)
+    save(Image.fromarray((rough.clip(0, 1) * 255).astype(np.uint8)), 'ducttape_side_rough')
+    save(_normal(np.zeros((8, 8), np.float32), 1), 'ducttape_side_nor')
+    # the inside of the core: plain kraft card
+    k = np.array([0.46, 0.34, 0.21], np.float32) * (0.88 + 0.16 * _wrap_noise(rng, 256, 256, 24))[..., None]
+    save(Image.fromarray((k.clip(0, 1) * 255).astype(np.uint8)), 'kraft_col')
+    save(Image.fromarray(np.full((8, 8), 225, np.uint8)), 'kraft_rough')
+    save(_normal(np.zeros((8, 8), np.float32), 1), 'kraft_nor')
+
+
 if __name__ == '__main__':
     os.makedirs(OUT, exist_ok=True)
     # whittled stakes: weathered wood, warmed and lifted towards fresh-cut
@@ -522,4 +570,5 @@ if __name__ == '__main__':
     blued()
     cooler_textures()
     colt_medallion()
+    duct_tape_textures()
     print('pegboard grid', pegboard())

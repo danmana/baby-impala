@@ -151,9 +151,10 @@ export class Motel {
     fascia.position.set(X0, 2.72, Z - 2.08);
     g.add(fascia);
     const postMat = pbr(maps.metal, [0.3, 1.5], 0x5b574f, { metalness: 0.7 });
+    // the posts stand on the curb (its top is 0.17 m up) and hold up the canopy's front edge
     for (let x = -10.4; x <= 8.6; x += 3.2) {
       const p = new THREE.Mesh(worldBox(0.09, 2.6, 0.09, 1), postMat);
-      p.position.set(x, 1.46, Z - 1.98);
+      p.position.set(x, 0.17 + 1.3, Z - 1.9);
       p.castShadow = true;
       g.add(p);
     }
@@ -290,10 +291,15 @@ export class Motel {
     face.rotation.y = Math.PI;
     face.position.set(0, 0.1, -0.012);
     sign.add(face);
-    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.08, 2.4, 14), postMat);
-    pole.position.set(0, -1.7, 0.14);
+    // the pole runs from inside the cabinet down to the asphalt (y = 0 in world space), with a base plate
+    const foot = -sign.position.y / sign.scale.y;
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.08, -0.5 - foot, 14), postMat);
+    pole.position.set(0, (foot - 0.5) / 2, 0.14);
     pole.castShadow = true;
     sign.add(pole);
+    const plate = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.22, 0.04, 20), postMat);
+    plate.position.set(0, foot + 0.02, 0.14);
+    sign.add(plate);
     const motelWord = canvasTex(512, 128, (c) => {
       c.fillStyle = '#120e0c';
       c.fillRect(0, 0, 512, 128);

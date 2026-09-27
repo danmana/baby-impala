@@ -793,8 +793,35 @@ def hanging_chain(name, links=13, span=0.23, pitch=0.022):
 
 
 def duct_tape(name):
-    return L.lathe(name, [(0, 0.03), (0, 0.055), (0.048, 0.055), (0.048, 0.03)], segments=24, mat='tape',
-                   axis='Z', close=True)
+    """A roll of duct tape lying on its side: a plain 24-sided ring on a 3"
+    cardboard core. The look is all texture: woven silver tape round the
+    outside, the wound layers and the core on the sides, cardboard inside."""
+    ri, ro, W = 0.038, 0.055, 0.048
+    o = L.lathe(name, [(0, ri), (0, ro), (W, ro), (W, ri)], segments=24, mat=None, axis='Z', close=True)
+    me = o.data
+    for kind, metal in (('ducttape_outer', 0.35), ('ducttape_side', 0.15), ('kraft', 0.0)):
+        me.materials.append(PH.tex_material(kind, metal))
+    uv = me.uv_layers.active or me.uv_layers.new(name='UVMap')
+    for poly in me.polygons:
+        c = poly.center
+        if abs(poly.normal.z) > 0.6:          # the flat sides: planar over the diameter
+            poly.material_index = 1
+            for li in poly.loop_indices:
+                co = me.vertices[me.loops[li].vertex_index].co
+                uv.data[li].uv = (0.5 + co.x / (2 * ro), 0.5 + co.y / (2 * ro))
+            continue
+        outer = math.hypot(c.x, c.y) > (ri + ro) / 2
+        poly.material_index = 0 if outer else 2
+        us = []
+        for li in poly.loop_indices:
+            co = me.vertices[me.loops[li].vertex_index].co
+            us.append((math.atan2(co.y, co.x) / (2 * math.pi)) % 1.0)
+        if max(us) - min(us) > 0.5:           # the face across the seam
+            us = [u + 1.0 if u < 0.5 else u for u in us]
+        for li, u in zip(poly.loop_indices, us):
+            co = me.vertices[me.loops[li].vertex_index].co
+            uv.data[li].uv = (u * 6, co.z / W) if outer else (u * 4, co.z / W * 0.3)
+    return o
 
 
 def hex_bag(name):

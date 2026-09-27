@@ -116,8 +116,12 @@ export class Materials {
       if (cached) return cached;
       // the source colour and roughness maps carry baked road grime around the
       // arches; Baby is kept spotless, so only the normals and AO survive
+      // the body is low-poly with its smooth shape baked into the normal map;
+      // the clear coat needs the same map, or it reflects the raw facets
+      const nScale = new THREE.Vector2(1, 1).multiply(src.normalScale);
       const p = new THREE.MeshPhysicalMaterial({
-        normalMap: src.normalMap, normalScale: new THREE.Vector2(1, 1).multiply(src.normalScale),
+        normalMap: src.normalMap, normalScale: nScale,
+        clearcoatNormalMap: src.normalMap, clearcoatNormalScale: nScale.clone(),
         aoMap: src.aoMap, aoMapIntensity: 1,
         color: new THREE.Color(0x0e0e11), roughness: 0.85, metalness: 0.0,
         clearcoat: 1.0, clearcoatRoughness: 0.07, envMapIntensity: 1.0, specularIntensity: 0.5,
