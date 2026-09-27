@@ -56,6 +56,8 @@ export class Director {
   private drag: { x: number; y: number; id: number } | null = null;
   private pinch = 0;
   private pointers = new Map<number, { x: number; y: number }>();
+  /** an eased turn of the head inside the cabin, towards a sigil */
+  private turn: { yaw: number; pitch: number } | null = null;
 
   get lookMode() { return this.view === 'interior' && !this.tween; }
 
@@ -77,6 +79,7 @@ export class Director {
         return;
       }
       if (!this.drag || this.drag.id !== e.pointerId) return;
+      this.turn = null;
       const k = 0.0042 / this.lookZoom;
       this.yaw += (e.clientX - this.drag.x) * k;
       // drag down to look down, like turning your head (matches the yaw direction)
@@ -98,7 +101,16 @@ export class Director {
     }, { passive: false });
   }
 
-  private applyLook() {
+  private applyLook(dt = 0) {
+    if (this.turn) {
+      const k = this.reduced ? 1 : 1 - Math.exp(-dt * 5);
+      let dy = this.turn.yaw - this.yaw;
+      if (dy > Math.PI) dy -= Math.PI * 2;
+      if (dy < -Math.PI) dy += Math.PI * 2;
+      this.yaw += dy * k;
+      this.pitch += (this.turn.pitch - this.pitch) * k;
+      if (Math.abs(dy) < 1e-3 && Math.abs(this.turn.pitch - this.pitch) < 1e-3) this.turn = null;
+    }
     const dir = new THREE.Vector3(Math.cos(this.pitch) * Math.cos(this.yaw), Math.sin(this.pitch), Math.cos(this.pitch) * Math.sin(this.yaw));
     this.controls.target.copy(this.camera.position).add(dir);
     this.camera.lookAt(this.controls.target);
@@ -172,23 +184,8 @@ export class Director {
       // leave through the window first
       pts.push(...[...(VIEWS.interior.via ?? [])].reverse());
     }
-    // arc around the car: a waypoint on a circle between start and end
-    if (view !== 'interior' && from !== 'interior') {
-      const a0 = Math.atan2(p0.z, p0.x);
-      let a1 = Math.atan2(v.pos.z, v.pos.x);
-      let da = a1 - a0;
-      if (da > Math.PI) da -= Math.PI * 2;
-      if (da < -Math.PI) da += Math.PI * 2;
-      a1 = a0 + da;
-      if (Math.abs(da) > 0.5) {
-        const r0 = Math.hypot(p0.x, p0.z), r1 = Math.hypot(v.pos.x, v.pos.z);
-        for (const f of [0.33, 0.66]) {
-          const a = a0 + da * f;
-          const r = Math.max(4.6, THREE.MathUtils.lerp(r0, r1, f) + 0.6);
-          pts.push(V(Math.cos(a) * r, THREE.MathUtils.lerp(p0.y, v.pos.y, f) + 0.25, Math.sin(a) * r));
-        }
-      }
-    }
+    // arc around the car: waypoints on a circle between start and end
+    if (view !== 'interior' && from !== 'interior') pts.push(...this.arc(p0, v.pos));
     if (view === 'interior') pts.push(...(v.via ?? []));
     pts.push(v.pos.clone());
     const curve = new THREE.CatmullRomCurve3(pts, false, 'centripetal');
@@ -203,6 +200,71 @@ export class Director {
           this.yaw = Math.atan2(d.z, d.x);
           this.pitch = Math.asin(d.y);
         }
+        onDone?.();
+      },
+    };
+  }
+
+  /** Waypoints on a circle round the car between two camera positions, so a glide never cuts through her. */
+  private arc(p0: THREE.Vector3, p1: THREE.Vector3): THREE.Vector3[] {
+    const a0 = Math.atan2(p0.z, p0.x);
+    let da = Math.atan2(p1.z, p1.x) - a0;
+    if (da > Math.PI) da -= Math.PI * 2;
+    if (da < -Math.PI) da += Math.PI * 2;
+    if (Math.abs(da) <= 0.5) return [];
+    const r0 = Math.hypot(p0.x, p0.z), r1 = Math.hypot(p1.x, p1.z);
+    return [0.33, 0.66].map((f) => {
+      const a = a0 + da * f;
+      const r = Math.max(4.6, THREE.MathUtils.lerp(r0, r1, f) + 0.6);
+      return V(Math.cos(a) * r, THREE.MathUtils.lerp(p0.y, p1.y, f) + 0.25, Math.sin(a) * r);
+    });
+  }
+
+  /**
+   * Turn to face a point on the car (a sigil). Outside, glide round to its
+   * side, a little above it; inside, turn the head. `screen` is where it
+   * should land in normalised screen coordinates, so a journal page can sit
+   * beside it (the page covers the right of a wide screen, the bottom of a phone).
+   */
+  focus(point: THREE.Vector3, screen: [number, number], onDone?: () => void) {
+    const cam = this.camera;
+    const tv = Math.tan(THREE.MathUtils.degToRad(cam.fov / 2)) / cam.zoom;
+    const th = tv * cam.aspect;
+    if (this.view === 'interior') {
+      const d = point.clone().sub(cam.position).normalize();
+      this.turn = {
+        yaw: Math.atan2(d.z, d.x) + screen[0] * Math.atan(th) * -1,
+        pitch: THREE.MathUtils.clamp(Math.asin(d.y) - screen[1] * Math.atan(tv), -1.1, 1.1),
+      };
+      onDone?.();
+      return;
+    }
+    const v = this.fit(VIEWS[this.view]);
+    const out = point.clone().sub(v.target).setY(0);
+    if (out.lengthSq() < 1e-4) out.copy(cam.position).sub(v.target).setY(0);
+    out.normalize();
+    const dist = Math.max(3.6, v.minDist + 0.4);
+    const pos = point.clone().addScaledVector(out, dist * 0.95).add(V(0, dist * 0.3, 0));
+    if (this.wallZ !== null && pos.z > this.wallZ - 0.5) pos.z = this.wallZ - 0.5;
+    if (pos.y < 0.4) pos.y = 0.4;
+    // aim past the point so it lands at `screen`
+    const fwd = point.clone().sub(pos).normalize();
+    const right = fwd.clone().cross(V(0, 1, 0)).normalize();
+    const up = right.clone().cross(fwd).normalize();
+    const d = pos.distanceTo(point);
+    const target = point.clone().addScaledVector(right, -screen[0] * d * th).addScaledVector(up, -screen[1] * d * tv);
+    const c = this.controls;
+    c.minDistance = 0.1;
+    c.maxDistance = 50;
+    c.minPolarAngle = 0;
+    c.maxPolarAngle = Math.PI;
+    const p0 = cam.position.clone();
+    const curve = new THREE.CatmullRomCurve3([p0, ...this.arc(p0, pos), pos], false, 'centripetal');
+    const dur = this.reduced ? 0.35 : THREE.MathUtils.clamp(curve.getLength() / 3.4, 0.9, 2.6);
+    this.tween = {
+      curve, target0: c.target.clone(), target1: target, t: 0, dur,
+      done: () => {
+        this.apply(v, false);
         onDone?.();
       },
     };
@@ -264,7 +326,7 @@ export class Director {
       return;
     }
     if (this.lookMode) {
-      this.applyLook();
+      this.applyLook(dt);
       return;
     }
     this.controls.update();

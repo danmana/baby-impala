@@ -192,30 +192,93 @@ export function drawInitials(width = 1024, height = 96): HTMLCanvasElement {
   return c;
 }
 
-export function drawDial(width = 1024, height = 176): HTMLCanvasElement {
+export function drawDial(width = 1024, height = 158): HTMLCanvasElement {
+  // the deck's dial window, laid out like the one in Baby's dash: FM over AM,
+  // a little marker before each band, DX / LOC at the right, the red needle
   const c = document.createElement('canvas');
   c.width = width;
   c.height = height;
   const ctx = c.getContext('2d')!;
-  ctx.fillStyle = '#0d0d0d';
+  const g = ctx.createLinearGradient(0, 0, 0, height);
+  g.addColorStop(0, '#161616');
+  g.addColorStop(1, '#0a0a0a');
+  ctx.fillStyle = g;
   ctx.fillRect(0, 0, width, height);
-  ctx.fillStyle = '#e9e2cf';
-  ctx.font = '40px "League Gothic", "Arial Narrow", sans-serif';
+  ctx.strokeStyle = 'rgba(210,205,190,0.55)';
+  ctx.lineWidth = 3;
+  ctx.strokeRect(6, 6, width - 12, height - 12);
+  ctx.fillStyle = '#ece6d4';
   ctx.textBaseline = 'middle';
-  ctx.fillText('FM', 40, 50);
-  ctx.fillText('AM', 40, 122);
-  const fm = ['88', '94', '98', '103', '106', '108'];
-  const am = ['54', '60', '70', '80', '100', '130', '170'];
-  fm.forEach((t, i) => ctx.fillText(t, 150 + i * 145, 50));
-  am.forEach((t, i) => ctx.fillText(t, 150 + i * 122, 122));
-  ctx.strokeStyle = 'rgba(233,226,207,0.6)';
+  const big = '44px "League Gothic", "Arial Narrow", sans-serif';
+  const small = '30px "League Gothic", "Arial Narrow", sans-serif';
+  const rows: [string, number, string[], number[]][] = [
+    ['FM', 46, ['88', '94', '98', '103', '106', '108'], [160, 290, 395, 500, 615, 725]],
+    ['AM', 110, ['54', '60', '70', '80', '100', '130', '170'], [160, 265, 355, 440, 520, 625, 830]],
+  ];
+  for (const [band, y, nums, xs] of rows) {
+    ctx.fillRect(28, y - 8, 14, 16);
+    ctx.beginPath();
+    ctx.moveTo(42, y - 8);
+    ctx.lineTo(54, y - 14);
+    ctx.lineTo(54, y + 14);
+    ctx.lineTo(42, y + 8);
+    ctx.fill();
+    ctx.font = small;
+    ctx.fillText(band, 66, y);
+    ctx.font = big;
+    nums.forEach((t, i) => ctx.fillText(t, xs[i], y));
+  }
+  ctx.font = small;
+  ctx.fillText('DX', 900, 46);
+  ctx.fillText('LOC', 900, 110);
+  ctx.fillRect(960, 38, 14, 16);
+  ctx.fillRect(960, 102, 14, 16);
+  // a hairline between the bands and the red needle near 100
+  ctx.strokeStyle = 'rgba(236,230,212,0.35)';
   ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.moveTo(130, 86);
-  ctx.lineTo(width - 40, 86);
+  ctx.moveTo(150, 79);
+  ctx.lineTo(880, 79);
   ctx.stroke();
-  // red needle parked near 98
   ctx.fillStyle = '#d42a1c';
-  ctx.fillRect(452, 12, 7, height - 24);
+  ctx.fillRect(488, 14, 6, height - 28);
+  return c;
+}
+
+/** The cassette door under the dial: the flap with its maker's line, and the model block at the right. */
+export function drawDeckDoor(width = 1024, height = 168): HTMLCanvasElement {
+  const c = document.createElement('canvas');
+  c.width = width;
+  c.height = height;
+  const ctx = c.getContext('2d')!;
+  ctx.fillStyle = '#070707';
+  ctx.fillRect(0, 0, width, height);
+  // the flap: glossy black, a faint edge and the slot line along its top
+  const flapW = width * 0.66;
+  const g = ctx.createLinearGradient(0, 0, 0, height);
+  g.addColorStop(0, '#1c1c1c');
+  g.addColorStop(0.5, '#0e0e0e');
+  g.addColorStop(1, '#141414');
+  ctx.fillStyle = g;
+  ctx.fillRect(40, 18, flapW - 40, height - 36);
+  ctx.strokeStyle = 'rgba(200,200,200,0.25)';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(40, 18, flapW - 40, height - 36);
+  ctx.fillStyle = '#9a9a9a';
+  ctx.textBaseline = 'middle';
+  ctx.font = '26px "Special Elite", monospace';
+  ctx.fillText('High-Fi', 78, 66);
+  ctx.fillText('CASSETTE', 78, 100);
+  ctx.fillStyle = ctx.strokeStyle = '#e0261f';
+  ctx.font = 'bold 96px "Reenie Beanie", cursive';
+  ctx.lineWidth = 4;
+  ctx.strokeText('Hunter', 290, 86);
+  ctx.fillText('Hunter', 290, 86);
+  // the model block
+  ctx.fillStyle = '#1a1a1a';
+  ctx.fillRect(flapW + 16, 18, width - flapW - 34, height - 36);
+  ctx.fillStyle = '#8c8c8c';
+  ctx.font = 'italic 54px "League Gothic", "Arial Narrow", sans-serif';
+  ctx.fillText('HT2000', flapW + 60, 92);
   return c;
 }

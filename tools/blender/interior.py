@@ -9,29 +9,38 @@ import bpy
 from mathutils import Vector, Matrix
 import lib as L
 import props as P
+import phprops as PH
 
 
 def tape_deck():
-    """Face points -X (towards the cabin). Dial window + slot + olive buttons."""
+    """The aftermarket slot-loader in the dash, after photos of Baby's own:
+    a wide dial window across the top, square grey buttons either side, and
+    the cassette door across the bottom with the model block at its right.
+    Face points -X (towards the cabin); the dial and the door are UV-mapped
+    quads the site paints (tape_deck_dial, tape_deck_door)."""
     parts = []
     w, h, d = 0.18, 0.052, 0.06
     parts.append(L.box('deck_body', (d, w, h), (0, 0, 0), 'plastic_black', bevel=0.003))
-    # cassette slot with its flap
-    parts.append(L.box('deck_slot', (0.004, 0.11, 0.008), (-d / 2 - 0.0015, -0.004, -0.009), 'black'))
-    parts.append(L.box('deck_flap', (0.003, 0.10, 0.006), (-d / 2 - 0.003, -0.004, -0.014), 'steel', bevel=0.001))
-    # chunky olive push buttons either side
-    for y, z in ((0.074, 0.011), (-0.074, 0.011), (0.074, -0.011), (-0.074, -0.011)):
-        parts.append(L.box('deck_btn', (0.014, 0.022, 0.016), (-d / 2 - 0.006, y, z), 'plastic_olive', bevel=0.002))
+    x = -d / 2
+    # a raised bezel round the dial and a lip over the door
+    parts.append(L.box('deck_bezel', (0.004, 0.128, 0.026), (x - 0.0015, -0.004, 0.012), 'black', bevel=0.001))
+    parts.append(L.box('deck_lip', (0.003, 0.137, 0.025), (x - 0.001, -0.0035, -0.0135), 'black', bevel=0.001))
+    # grey square buttons: one each side of the dial, a pair stacked at the lower left
+    for (y, z, bw, bh) in ((0.074, 0.013, 0.012, 0.013), (-0.078, 0.011, 0.012, 0.017),
+                           (0.074, -0.006, 0.012, 0.008), (0.074, -0.019, 0.012, 0.013)):
+        parts.append(L.box('deck_btn', (0.01, bw, bh), (x - 0.004, y, z), 'tape', bevel=0.0012))
     o = L.join(parts, 'tape_deck')
-    # FM/AM dial window: a separate UV-mapped quad for the dial texture
-    x = -d / 2 - 0.0012
-    dial = L.mesh_object('tape_deck_dial', [(x, 0.059, 0.002), (x, -0.059, 0.002), (x, -0.059, 0.022),
-                                            (x, 0.059, 0.022)], [(0, 1, 2, 3)], 'dial', smooth=False)
-    me = dial.data
-    uv = me.uv_layers.new(name='UVMap')
-    for li, (u, v) in zip(range(4), ((0, 0), (1, 0), (1, 1), (0, 1))):
-        uv.data[li].uv = (u, v)
-    return o, dial
+    xq = x - 0.0036
+    dial = L.mesh_object('tape_deck_dial', [(xq, 0.061, 0.002), (xq, -0.069, 0.002), (xq, -0.069, 0.022),
+                                            (xq, 0.061, 0.022)], [(0, 1, 2, 3)], 'dial', smooth=False)
+    door = L.mesh_object('tape_deck_door', [(x - 0.0026, 0.064, -0.0245), (x - 0.0026, -0.071, -0.0245),
+                                            (x - 0.0026, -0.071, -0.0025), (x - 0.0026, 0.064, -0.0025)], [(0, 1, 2, 3)],
+                         'black', smooth=False)
+    for q in (dial, door):
+        uv = q.data.uv_layers.new(name='UVMap')
+        for li, (u, v) in zip(range(4), ((0, 0), (1, 0), (1, 1), (0, 1))):
+            uv.data[li].uv = (u, v)
+    return o, dial, door
 
 
 def lego(name, mat, studs=(2, 4)):
@@ -61,14 +70,78 @@ def army_man(name):
     return L.join(parts, name)
 
 
+def clear_centre_stack():
+    """The passenger half of the base model's dash starts in a diagonal right
+    beside the centre, and from the driver's seat that raised edge covers the
+    deck's right-hand end. Slide the diagonal 5.5 cm towards the passenger
+    side: its lower end is the vertex column at y = -0.031, its upper end the
+    one at y = -0.206 below the top of the dash."""
+    o = bpy.data.objects.get('Desktop_Indoor')
+    if o is None:
+        return
+    mw = o.matrix_world
+    inv = mw.inverted()
+    moved = 0
+    for v in o.data.vertices:
+        p = mw @ v.co
+        if abs(p.y + 0.031) < 0.004 or (abs(p.y + 0.206) < 0.004 and p.z < 0.93):
+            p.y -= 0.055
+            v.co = inv @ p
+            moved += 1
+    o.data.update()
+    print('dash diagonal moved', moved, 'verts')
+
+
+def green_cooler(name='cooler'):
+    """The green cooler from the back seat: a steel-belted cooler in green
+    enamel with a cream band at the lid, a chrome latch at the front, chrome
+    handles at the ends and a diamond badge. Built standing on z = 0, its
+    front (latch) towards +X, its length along Y."""
+    D, Lc, H = 0.28, 0.44, 0.33
+    hb, band, lid = 0.255, 0.018, 0.055
+    parts = []
+    body = L.box(name + '_body', (D, Lc, hb), (0, 0, hb / 2), None, bevel=0.012, segments=3)
+    parts.append(P._tex(body, 'cooler_green', 0.25))
+    parts.append(L.box(name + '_band', (D + 0.004, Lc + 0.004, band), (0, 0, hb + band / 2), 'ivory', bevel=0.004))
+    top = L.box(name + '_lid', (D + 0.006, Lc + 0.006, lid), (0, 0, hb + band + lid / 2), None, bevel=0.01, segments=3)
+    parts.append(P._tex(top, 'cooler_green', 0.25))
+    xf = D / 2 + 0.003
+    # the latch across the band, front and centre
+    parts.append(L.box(name + '_latch', (0.006, 0.046, 0.075), (xf + 0.003, 0, hb + band / 2 + 0.006), 'chrome', bevel=0.003))
+    parts.append(L.box(name + '_clasp', (0.012, 0.03, 0.022), (xf + 0.008, 0, hb + band + 0.028), 'chrome', bevel=0.004))
+    # folding handles at both ends: plates and a bail
+    for ys in (1, -1):
+        yf = ys * (Lc / 2 + 0.003)
+        for dx in (-0.045, 0.045):
+            parts.append(L.box(name + '_plate', (0.03, 0.006, 0.05), (dx, yf + ys * 0.002, hb - 0.035), 'chrome', bevel=0.002))
+        bail = [Vector((-0.045, yf + ys * 0.006, hb - 0.03)), Vector((-0.045, yf + ys * 0.012, hb - 0.075)),
+                Vector((0.045, yf + ys * 0.012, hb - 0.075)), Vector((0.045, yf + ys * 0.006, hb - 0.03))]
+        parts.append(L.sweep(name + '_bail', L.catmull(bail, 6), P._circle(0.0035, 8), 'chrome'))
+    # hinges at the back
+    for dy in (-0.13, 0.13):
+        parts.append(L.cylinder(name + '_hinge', 0.006, 0.04, (-D / 2 - 0.004, dy, hb + band), axis='Y', segments=12, mat='chrome'))
+    # the diamond badge, low on the front towards the left
+    bx, bz = xf + 0.0012, 0.075
+    by = 0.1
+    verts = [(bx, by, bz - 0.032), (bx, by - 0.058, bz), (bx, by, bz + 0.032), (bx, by + 0.058, bz)]
+    badge = L.mesh_object(name + '_badge', verts, [(0, 1, 2, 3)], None, smooth=False)
+    uv = badge.data.uv_layers.new(name='UVMap')
+    for lp, (u, v) in zip(badge.data.loops, ((0.5, 0.0), (1.0, 0.5), (0.5, 1.0), (0.0, 0.5))):
+        uv.data[lp.index].uv = (u, v)
+    badge.data.materials.append(PH.tex_material('cooler_badge', 0.0))
+    parts.append(badge)
+    return L.join(parts, name)
+
+
 def build(fa=None, ra=None):
     L.set_collection('Baby')
+    clear_centre_stack()
     # ---------------------------------------------------------------- tape deck (centre of the dash)
-    deck, dial = tape_deck()
+    deck, dial, door = tape_deck()
     # slightly smaller and nudged in/up so the dash's diagonal cut-out doesn't
     # swallow its right-hand end (placement found by ray-testing the face
     # from the driver's seat)
-    for o in (deck, dial):
+    for o in (deck, dial, door):
         o.data.transform(Matrix.Diagonal((1.0, 0.92, 0.92, 1.0)))
         o.location = (0.895, -0.015, 0.865)
         L.bake_transform(o)
@@ -103,6 +176,12 @@ def build(fa=None, ra=None):
         if door:
             o.parent = door
             o.matrix_parent_inverse = door.matrix_world.inverted()
+
+    # ---------------------------------------------------------------- the green cooler on the back seat
+    # passenger side, its back against the seat back, latch towards the front
+    cooler = green_cooler()
+    cooler.location = (-0.42, -0.42, 0.686)
+    L.bake_transform(cooler)
 
     # ---------------------------------------------------------------- carved initials trim
     # a wooden trim board on the package tray behind the back seat; the top face

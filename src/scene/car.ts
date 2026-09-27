@@ -3,7 +3,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { Materials } from './materials';
 import { Plate, drawKansas, drawOhio } from './plates';
-import { drawDevilsTrap, drawDial, drawInitials } from './textures';
+import { drawDeckDoor, drawDevilsTrap, drawDial, drawInitials } from './textures';
 
 export interface CarParts {
   root: THREE.Group;
@@ -70,6 +70,7 @@ export async function loadCar(buffer: ArrayBuffer, mats: Materials): Promise<Car
   await Promise.all([
     document.fonts.load('330px "League Gothic"'),
     document.fonts.load('40px "Special Elite"'),
+    document.fonts.load('84px "Reenie Beanie"'),
   ]).catch(() => undefined);
 
   const root = new THREE.Group();
@@ -88,10 +89,15 @@ export async function loadCar(buffer: ArrayBuffer, mats: Materials): Promise<Car
   lens.emissiveMap = lensTex;
   lens.emissive.set(0xffffff);
   lens.needsUpdate = true;
+  // glTF UVs run top-down, so these canvases go on unflipped
   const dialTex = tex(drawDial());
+  dialTex.flipY = false;
   const dial = new THREE.MeshStandardMaterial({ map: dialTex, emissiveMap: dialTex, emissive: 0xffd6a0, emissiveIntensity: 0, roughness: 0.3 });
   mats.registerLamp('dial', dial);
-  mats.extra.push(trim, dial);
+  const doorTex = tex(drawDeckDoor());
+  doorTex.flipY = false;
+  const door = new THREE.MeshStandardMaterial({ map: doorTex, roughness: 0.3, envMapIntensity: 0.6 });
+  mats.extra.push(trim, dial, door);
 
   gltf.scene.traverse((o) => {
     byName.set(o.name, o);
@@ -102,6 +108,7 @@ export async function loadCar(buffer: ArrayBuffer, mats: Materials): Promise<Car
     const key = src.name.replace(/\.\d+$/, '');
     if (m.name.startsWith('initials_trim')) m.material = trim;
     else if (m.name.startsWith('tape_deck_dial')) m.material = dial;
+    else if (m.name.startsWith('tape_deck_door')) m.material = door;
     else if (OWN_MATS.has(key)) m.material = mats.get(key)!;
     else m.material = mats.upgrade(src, m.name);
     // refractive glass (KHR_materials_transmission from the scanned bottles)

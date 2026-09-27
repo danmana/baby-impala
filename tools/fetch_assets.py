@@ -22,7 +22,7 @@ UA = {'User-Agent': 'baby-impala-fetch/1.0'}
 PH_MODELS = [
     'ammo_box', 'binder_notebook', 'bolt_action_rifle_7_62', 'can_rusted', 'crowbar_01', 'fish_knife',
     'hatchet', 'machete', 'medical_tape', 'ornate_medieval_dagger', 'russian_food_cans_01',
-    'service_pistol', 'small_oil_can_01', 'vintage_flashlight', 'wine_bottles_01', 'wooden_axe_02',
+    'small_oil_can_01', 'vintage_flashlight', 'wine_bottles_01', 'wooden_axe_02',
     'cross_pein_hammer', 'vintage_lighter',
 ]
 # ground and motel surfaces (2k: diffuse, normal, roughness, AO)
@@ -32,7 +32,7 @@ PH_TEXTURES = [
     'weathered_peeling_timber',
 ]
 # wood grain for the hand-made props (1k: diffuse, normal, roughness)
-PH_PROP_TEXTURES = ['fine_grained_wood', 'rough_wood', 'american_walnut_veneer']
+PH_PROP_TEXTURES = ['fine_grained_wood', 'rough_wood', 'american_walnut_veneer', 'bark_willow']
 # lighting presets (public/hdri/moon|sunset|day.hdr are these at 1k)
 PH_HDRIS = ['narrow_moonlit_road', 'goegap_road', 'mall_parking_lot']
 # prop materials and the paper for the journal UI

@@ -202,7 +202,7 @@ export const HOTSPOTS: Hotspot[] = [
       kicker: 'Driver picks the music.',
       title: 'The tape deck',
       body: [
-        'An aftermarket slot-loading cassette deck under the dash: FM/AM dial window, a horizontal tape slot, chunky olive push buttons.',
+        'An aftermarket cassette deck set into the dash: a wide FM/AM dial window with DX and LOC markers, square grey buttons either side, and the cassette door underneath.',
         '“Black Sabbath, Motörhead, Metallica? It’s the greatest hits of mullet rock.” “House rules, Sammy. Driver picks the music, shotgun shuts his cakehole.”',
         'When Sam wires in an iPod jack while Dean is in Hell, Dean rips it out as soon as he is back.',
       ],
@@ -254,6 +254,21 @@ export const HOTSPOTS: Hotspot[] = [
     },
   },
   {
+    id: 'cooler',
+    label: 'The green cooler',
+    pos: [-0.27, 0.98, 0.42],
+    view: 'interior',
+    lore: {
+      kicker: 'Back seat. Mostly beer.',
+      title: 'The green cooler',
+      body: [
+        'A vintage steel Coleman cooler, green with a cream band round the lid, that rides on Baby’s back seat from the first season to the last and turns up in plenty of motel rooms along the way.',
+        'Mostly it holds beer. Sometimes water or smoothies. In “Baby” it holds beer, smoothies and a decapitated head.',
+      ],
+      refs: '1.15 “The Benders” to 15.20 “Carry On”; 11.04 “Baby”',
+    },
+  },
+  {
     id: 'bench',
     label: 'Bench seats',
     pos: [0.2, 0.95, 0.35],
@@ -294,7 +309,10 @@ const item = (name: string, body: string[], refs?: string, note?: string): Trunk
 
 export const TRUNK_ITEMS: Record<string, TrunkItem> = {
   rifle: item('Hunting rifle', ['A bolt-action rifle for anything that needs to be put down from a distance. Usually loaded with silver or iron rounds.']),
-  pistol: item('Handgun', ['A plain automatic for everyday trouble. With silver or iron rounds it works on more than just people.']),
+  pistol: item('Dean’s Colt M1911A1', [
+    'Dean’s own gun and his firearm of choice: a stainless Colt M1911A1, engraved, with pearl grips. A .45 with seven rounds in the magazine and one in the chamber. He is rarely without it.',
+    'He loads it with silver rounds for monsters, devil’s trap bullets for demons and witch-killing bullets for witches. It has been stolen from him more than once, and every time he has got it back.',
+  ], 'All seasons. Sam fires it first, in “Something Wicked”.'),
   shotgun: item('Pump shotgun', ['The workhorse of the arsenal. Loaded with rock salt it drives off ghosts; with slugs it handles anything with a body.'], 'Everywhere, from the Pilot on'),
   sawed_off: item('Sawed-off shotgun', ['Short enough to hide under a jacket. Rock salt for spirits, silver shot for shapeshifters. Dean’s favourite argument-ender.']),
   rock_salt: item('Rock-salt shells', ['Salt disperses a ghost for a while. It won’t kill one, but it buys enough time to dig up the bones.'], '1.01 “Pilot” and every salt-and-burn after'),
@@ -312,7 +330,10 @@ export const TRUNK_ITEMS: Record<string, TrunkItem> = {
   lighter_fluid: item('Lighter fluid', ['Salt and burn: dig up the bones, salt them, douse them and drop a match. It is how a ghost is put down for good.'], 'The Pilot and a hundred cemeteries after'),
   flashlight: item('Flashlight', ['Every hunt happens at night, in basements, crypts and abandoned asylums.']),
   flashlight_2: item('Flashlight (spare)', ['Batteries die at the worst possible moment. Especially near ghosts.']),
-  emf: item('EMF meter', ['Detects the electromagnetic field spirits give off. Dean built his out of an old Walkman.'], 'Seasons 1–3'),
+  emf: item('EMF meter', [
+    '“It’s an EMF meter. It reads electromagnetic frequencies.” Spirits give off an electromagnetic field, so this is how a hunter tells whether a place is really haunted, and sometimes where the body is. It makes noise when the reading climbs. Near power lines it is useless.',
+    'Dean’s first one was built out of an old tape player in “Phantom Traveler” and never seen again. This one, a bare circuit board with a meter and a row of red lights, is the one they carry from then on.',
+  ], 'Every season, from 1.04 “Phantom Traveler”'),
   fake_ids: item('Fake IDs', ['FBI, CDC, federal marshals, priests. The aliases are usually borrowed from classic-rock musicians: Agent Page, Agent Plant.']),
   fake_ids_2: item('More fake IDs', ['A different badge for every town.']),
   journal: item('John’s journal', ['John Winchester’s notebook: decades of lore, monster notes, phone numbers and family history. For years it is the closest thing the brothers have to a father.'], 'From the Pilot on'),

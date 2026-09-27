@@ -151,7 +151,7 @@ gl_Position = p.xyww;   // depth is always 1.0: the sky never gets closer</code>
         <p>The spotlights only rode along for the first few seasons, so switched off, they come off the car completely, together with their sigil and their label in the exploded view. Hiding the lamp housing outright would also have removed the light inside it, and a changed light count makes three.js recompile every shader. So the meshes move to a layer no camera renders instead.</p>
 
         <h2>The trunk</h2>
-        <p>The trunk was the part Dan cared about most, and the one that needed the most work. When the lid opens, the false floor stands up. Its underside is a pegboard, with the gear hung on pegs and spring clips. Below it, a grey tray holds the rest. Hover over anything and it glows and gets a paper tag. Click it and its page opens in the journal. The chevrons at the foot of the page walk through the whole inventory in reading order: the Devil's Trap first, then the board row by row, then the tray.</p>
+        <p>The trunk was the part Dan cared about most, and the one that needed the most work. When the lid opens, the false floor stands up. Its underside is a pegboard, with the gear hung on pegs and spring clips. Below it, a grey tray holds the rest. Hover over anything and it glows and gets a paper tag. Click it and its page opens in the journal. The chevrons at the foot of the page walk through the whole inventory in reading order: the Devil's Trap first, then the board row by row, then the tray. The sigils on and in the car page the same way. Outside, each turn of the page swings the camera round the car to the next sigil, parks it beside the page and keeps its label showing. Inside, you turn your head to it.</p>
 
         <figure class="photo wide tilt-l">
           <img src="/about/trunk_ui.webp" width="1600" height="1000" loading="lazy" alt="The open trunk: the Devil's Trap painted on the lid, weapons on the standing board, gear in the tray, and a journal page about the Colt open on the right." />
@@ -162,7 +162,7 @@ gl_Position = p.xyww;   // depth is always 1.0: the sky never gets closer</code>
         <p>Three problems here are worth telling:</p>
         <ul>
           <li><strong>The lid clipped through the body.</strong> The build now sweeps the lid through its whole swing and tests it for overlaps with the body. The hinge moved to the lid's top-front edge, the first position with zero overlaps, and the pegboard opens to 78° so it clears the lid.</li>
-          <li><strong>The knives looked like they were standing on their edges.</strong> Dan said the Bowie, the silver knife and Ruby's knife were "rotated along their axis". I measured every blade: all of them were lying flat, within a few millimetres. The problem was shape, not rotation. They were narrow, double-edged spikes with a central ridge, and under the trunk lamp they read as edge-on. So I rebuilt them: a wide, flat Bowie with a clip point and a brass guard, a broader Ruby's knife with an upswept tip, and a flat angel blade.</li>
+          <li><strong>The knives looked like they were standing on their edges.</strong> Dan said the Bowie, the silver knife and Ruby's knife were "rotated along their axis". I measured every blade in the build: all of them were lying flat, within a few millimetres. So I decided the problem was their shape (narrow, double-edged spikes with a central ridge that read as edge-on under the trunk lamp) and rebuilt them wide and flat: a Bowie with a clip point and a brass guard, a broader Ruby's knife with an upswept tip, and a flat angel blade. A round later it turned out Dan had been looking at an older, cached model the whole time, and in that one the blades really were standing on their edges. More on that below.</li>
           <li><strong>One of my own glyphs was bad.</strong> A symbol I'd invented for the Devil's Trap ring was a cross with hooked arms, and it read as a swastika. It's now a forked stem. Lesson learned: look at every symbol you draw.</li>
         </ul>
 
@@ -175,8 +175,36 @@ gl_Position = p.xyww;   // depth is always 1.0: the sky never gets closer</code>
           <li><strong>Everything hangs the way it would in a workshop.</strong> The machete, the arrow and the cross rest on L-shaped pegs. Knives, the hatchet and the hammer stand on a pair of pegs under their guards or heads. Stakes, the sage and the crowbar are held by spring-steel clips. The dreamcatcher, the knuckles, the rosary and the chain hang from pegs through their loops.</li>
           <li><strong>None of it is placed by hand.</strong> The build casts rays through each item to find its lower edge and the outline of its grip. It puts the pegs in the nearest real holes and slides the item down onto them. The clips are shaped from the same rays, so each band hugs the item's profile.</li>
           <li><strong>Contact shadows are baked in.</strong> Cycles renders ambient occlusion and a soft lamp above the board straight into the pegboard's texture, so each piece leaves a faint shadow on the board.</li>
-          <li><strong>The weakest props were rebuilt:</strong> whittled seven-sided stakes, a cross of two weathered slats lashed with twine, an angel blade with a three-sided blade, road flares with striker caps, brass knuckles cut from one plate, a proper rosary, a cinched hex bag and a chain hanging in a curve between two pegs.</li>
+          <li><strong>The weakest props were rebuilt:</strong> whittled seven-sided stakes, a cross of two weathered slats lashed with twine, road flares with striker caps, brass knuckles cut from one plate, a proper rosary, a cinched hex bag and a chain hanging in a curve between two pegs.</li>
         </ul>
+        <p>Two blades still weren't right, so Dan sent reference photos of them (for modelling only; they aren't shown here). Ruby's knife now has the prop's clip point sweeping up to the tip, five scallops cut into the edge, a thin oval guard and a knobbly stag grip. An etched line follows the scallops, and a row of runes runs along the spine. The runes are invented: strokes hung on a shared baseline. The etching is a texture of frosted, rougher steel, so it shows against the polish. The angel blade got a long three-sided blade that tapers straight to the point, with a fuller down each face, and a polished collar that flares into a plain tube grip and a cone pommel.</p>
+
+        <h3>From reference photos</h3>
+        <p>Next, Dan sent reference photos for a handful of the most recognisable pieces, and they were rebuilt to match:</p>
+        <ul>
+          <li><strong>The Colt</strong> is a Paterson revolver in antiqued silver now. It has a long octagonal barrel with three bands at the muzzle and "non timebo mala" along it in blackletter, floral scrollwork on the frame and lug, a banded cylinder and a walnut grip with a pentagram burned into it. It lies in a black case with its thirteen rounds standing in a rack below, each one numbered by hand. The textures are generated: scrollwork drawn as curling stems with leaves, the motto set in UnifrakturMaguntia (an OFL font), the numbers in the journal's handwriting.</li>
+          <li><strong>Dean's own gun</strong> replaced the generic pistol on the board. It's a stainless Colt M1911A1, engraved all over, with pearl grips, gold medallions and polished screws. It hangs by its trigger guard.</li>
+          <li><strong>The EMF meter</strong> is the one the brothers carry for most of the show, not the Walkman Dean built in "Phantom Traveler". It's a bare green perfboard with an analogue meter, five red LEDs, a telescopic aerial wound with a red coil, a copper spring, loops of coloured wire and a toggle switch. It used to be hidden under the rifle, so it moved to its own spot in the tray.</li>
+          <li><strong>Both shotguns</strong> looked like plastic. They're now blued steel with worn edges and fine scratches, and walnut, and the sawed-off has a proper side-by-side action and pistol grip. The sawed-off also used to poke out through the left wall of the tray. A small script now prints every tray item's footprint and flags anything that crosses a wall or overlaps a neighbour. There's no free lane left for it, so it lies across the rifle, the way guns pile up in a real trunk.</li>
+        </ul>
+
+        <figure class="pair">
+          <div class="photo tilt-r">
+            <img src="/about/colt.webp" width="1200" height="623" loading="lazy" alt="The Colt in its open black case: an antiqued silver Paterson revolver with an octagonal barrel reading non timebo mala, engraved frame and walnut grip with a pentagram, and thirteen numbered rounds in a rack." />
+            <figcaption>The Colt and its thirteen rounds.</figcaption>
+          </div>
+          <div class="photo tilt-l">
+            <img src="/about/m1911.webp" width="1000" height="688" loading="lazy" alt="Dean's stainless, engraved M1911A1 with pearl grips and a gold medallion, hanging on the pegboard above the brass knuckles." />
+            <figcaption>Dean's M1911A1, hung by its trigger guard.</figcaption>
+          </div>
+        </figure>
+
+        <figure class="photo wide tilt-r">
+          <img src="/about/emf.webp" width="1000" height="667" loading="lazy" alt="The EMF meter lying in the tray: a green perfboard with a yellow and red meter, five red LEDs, a telescopic aerial with a red coil and loops of coloured wire." />
+          <figcaption>The EMF meter they carry from season one on.</figcaption>
+        </figure>
+
+        <p>The journal's paging follows the board now. Instead of guessing the order from where things sit (which put the silver knife after Ruby's knife), the build numbers each piece as it lays the board out, row by row, left to right, and the page count follows that. A second of anything ("Because one is never enough.") always comes straight after the first.</p>
 
         <figure class="pair">
           <div class="photo tilt-r">
@@ -184,8 +212,8 @@ gl_Position = p.xyww;   // depth is always 1.0: the sky never gets closer</code>
             <figcaption>The pegboard: every piece on pegs in real holes, or in a clip shaped to it.</figcaption>
           </div>
           <div class="photo tilt-l">
-            <img src="/about/knives.webp" width="1000" height="750" loading="lazy" alt="A grid of isolated Blender renders of each knife and the hatchet from face-on and end-on, used to check how they lie." />
-            <figcaption>An earlier check: every knife rendered on its own, face-on and end-on.</figcaption>
+            <img src="/about/knives_ref.webp" width="1000" height="833" loading="lazy" alt="Close-up of Ruby's knife and the angel blade on the pegboard: the polished, scalloped blade with etched runes, a thin disc guard and a stag grip, and the long three-sided angel blade with its chrome collar and tube grip." />
+            <figcaption>Ruby's knife and the angel blade, rebuilt from reference photos.</figcaption>
           </div>
         </figure>
 
@@ -198,6 +226,15 @@ gl_Position = p.xyww;   // depth is always 1.0: the sky never gets closer</code>
           <img src="/about/interior.webp" width="1600" height="1000" loading="lazy" alt="The view from the driver's seat: the thin steering wheel, the gauges, the tan dash and the tape deck, through the windshield into the night." />
           <figcaption>From the driver's seat: the thin wheel, the tan dash, the deck, and the Legos in the defroster vent.</figcaption>
         </figure>
+
+        <p>The next round moved the dash's diagonal edge 5.5 centimetres towards the passenger side, because from the driver's seat it still clipped the deck's right-hand end. The deck itself was redone after photos of Baby's own. It has a wide dial window with FM over AM and DX and LOC markers, square grey buttons, and the cassette door underneath with a script badge and a model block. The dial and the door are painted in the page on canvases. Their first version came out upside down: glTF counts texture rows from the top, the canvas default counts from the bottom.</p>
+
+        <figure class="photo tilt-l">
+          <img src="/about/deck.webp" width="900" height="400" loading="lazy" alt="The redone cassette deck in the dash: a lit FM/AM dial with a red needle, DX and LOC markers, grey buttons and a black cassette door with a red script badge." />
+          <figcaption>The deck, after photos of the real one.</figcaption>
+        </figure>
+
+        <p>The green cooler rides on the back seat too: a vintage steel cooler in green enamel with a cream band at the lid, a chrome latch, handles at the ends and a diamond badge. It's on the passenger side, back against the seat, like in Dan's photo. It has its own sigil and page: mostly beer, sometimes smoothies, and once a head.</p>
 
         <p>Lighting the cabin was a surprise. The obvious move is a point light in the cabin, but a light just behind the camera bounces straight back off the rear-view mirror as a flare. It also turned every bit of trim into a row of bright dots and lit up the insides of the fenders through the footwell. The cabin now gets sky fill instead, from a hemisphere light that adds soft diffuse light and no highlights, warmed so the tan dash reads as tan. The mirror became dark glass, which is what a rear-view mirror is at night.</p>
 
@@ -338,7 +375,7 @@ if (rig.blending || shadowHold &gt; 0 || exploderMoved || trunkMoved) {
 tape deck:   5% of its face hidden from the driver's seat at the new spot
 blades:      Ruby's knife 2.0 cm wide, 0.7 cm thick  →  lying flat
 hatchet:     2.6 cm proud of the felt  →  flat, just badly placed</code></pre>
-        <p>The last two lines are why I rebuilt the knives rather than rotating them. Measuring first stopped me from "fixing" something that wasn't broken and missing what was.</p>
+        <p>The last two lines are why I rebuilt the knives rather than rotating them. Measuring first is still the right habit, but it only checks the build you measure. Dan's browser was showing a different one, and I only found out a round later.</p>
 
         <h2>The stack</h2>
         <ul class="stack">
@@ -355,7 +392,7 @@ hatchet:     2.6 cm proud of the felt  →  flat, just badly placed</code></pre>
           <li>Music on the local tapes: Kevin MacLeod (<a href="https://incompetech.com" rel="noopener">incompetech.com</a>), CC BY 4.0.</li>
           <li>HDRIs, textures and trunk props: <a href="https://polyhaven.com" rel="noopener">Poly Haven</a> (CC0). Prop and paper materials: <a href="https://ambientcg.com" rel="noopener">ambientCG</a> (CC0).</li>
           <li>Sounds: Joseph Sardin, <a href="https://bigsoundbank.com" rel="noopener">BigSoundBank</a> (CC0); PDSounds (public domain).</li>
-          <li>Fonts: League Gothic, Special Elite and Reenie Beanie (SIL OFL / Apache 2.0).</li>
+          <li>Fonts: League Gothic, Special Elite and Reenie Beanie (SIL OFL / Apache 2.0); UnifrakturMaguntia (SIL OFL) for the motto on the Colt.</li>
           <li>Reference images, used for modelling only: mostly thespnreferencedesk and Reddit.</li>
         </ul>
 

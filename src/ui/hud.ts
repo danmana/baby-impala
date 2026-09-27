@@ -203,7 +203,7 @@ export class Hud {
         'Music on the local tapes by Kevin MacLeod (<a href="https://incompetech.com" target="_blank" rel="noopener">incompetech.com</a>), CC BY 4.0. ' +
         'HDRIs, textures and trunk props from <a href="https://polyhaven.com" target="_blank" rel="noopener">Poly Haven</a> and <a href="https://ambientcg.com" target="_blank" rel="noopener">ambientCG</a> (CC0). ' +
         'Engine and door sounds: Joseph Sardin, <a href="https://bigsoundbank.com" target="_blank" rel="noopener">BigSoundBank</a> (CC0); tape deck and creak: PDSounds (public domain). ' +
-        'Fonts: League Gothic, Special Elite, Reenie Beanie (OFL / Apache 2.0).' }),
+        'Fonts: League Gothic, Special Elite, Reenie Beanie, UnifrakturMaguntia (OFL / Apache 2.0).' }),
     );
     footer.lastElementChild?.append(credits);
 

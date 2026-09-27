@@ -33,7 +33,7 @@ const PARTS: PartDef[] = [
   { label: 'Wheel', names: ['tire_rl', 'rim_rl', 'drum_rl'], offset: [-0.05, 0, -0.85], delay: 0.5, noLabel: true },
   { label: 'Wheel', names: ['tire_fr', 'rim_fr', 'drum_fr'], offset: [0.05, 0, 0.85], delay: 0.48, noLabel: true },
   { label: 'Wheel', names: ['tire_rr', 'rim_rr', 'drum_rr'], offset: [-0.05, 0, 0.85], delay: 0.53, noLabel: true },
-  { label: 'Bench seats', names: ['CouchUP_Indoor', 'CouchDown_Indoor'], offset: [0, 0.95, 0], delay: 0.6, labelOffset: [0, 0.3, 0] },
+  { label: 'Bench seats', names: ['CouchUP_Indoor', 'CouchDown_Indoor', 'cooler'], offset: [0, 0.95, 0], delay: 0.6, labelOffset: [0, 0.3, 0] },
   { label: 'Dash & tape deck', names: ['Desktop_Indoor', 'BaseClock_Indoor', 'ArrowClock_Indoor', 'tape_deck', 'tape_deck_dial', 'legos', 'defroster_vent'], offset: [0.1, 1.5, 0], delay: 0.66, labelOffset: [0, 0.22, 0] },
   { label: 'Steering wheel', names: ['DonutDrive_Indoor', 'BracketDrive_Indoor', 'BaseDrive_Indoor', 'Leaver_Indoor'], offset: [-0.25, 1.9, -0.25], delay: 0.7, labelOffset: [0, 0.25, 0] },
   { label: 'Spotlight', names: ['spotlight_l', 'spot_mount_l', 'spot_handle_l'], offset: [0.1, 0.35, -0.55], delay: 0.36 },

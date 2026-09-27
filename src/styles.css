@@ -649,7 +649,7 @@ button {
   transition: opacity 0.2s ease;
   pointer-events: none;
 }
-.hotspot:hover .label, .hotspot:focus-visible .label { opacity: 1; }
+.hotspot:hover .label, .hotspot:focus-visible .label, .hotspot.focus .label { opacity: 1; }
 .hotspot.hidden { visibility: hidden; pointer-events: none; }
 
 /* exploded-view labels */

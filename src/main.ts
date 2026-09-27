@@ -181,7 +181,7 @@ async function main() {
   // hidden-away parts: the trunk arsenal, the engine and the cabin. They never
   // cast a useful shadow (the body shell already does) and can't be seen in the
   // puddles, and the arsenal is only drawn while the trunk is open
-  const HIDDEN_AWAY = /^item_|^false_floor|^engine|^transmission|^radiator|_Indoor|^seat|^dash|^steer|^tape_deck|^ashtray|^army|^lego|^defroster|^initials|^drum/;
+  const HIDDEN_AWAY = /^item_|^false_floor|^engine|^transmission|^radiator|_Indoor|^seat|^dash|^steer|^tape_deck|^ashtray|^army|^lego|^defroster|^initials|^drum|^cooler/;
   const hiddenAway: THREE.Object3D[] = [];
   car.root.traverse((o) => {
     if ((o as THREE.Mesh).isMesh && HIDDEN_AWAY.test(o.name)) {
@@ -290,7 +290,8 @@ async function main() {
   const lore = new LorePanel(ui);
   const deck = new Deck(ui, music, (n) => audio.play(n, { gain: 0.9 }));
   const overlay = new Overlay(ui, [...HOTSPOTS, trapSpot], (s) => openHotspot(s), () => [car.root], (id) => sigils.positionOf(id));
-  overlay.onHover = (id) => (sigils.hovered = id);
+  // the sigil whose page is open stays lit when the pointer moves off it
+  overlay.onHover = (id) => (sigils.hovered = id ?? focusedSigil);
   sigils.visibleTest = (id) => overlay.isVisible(id);
   overlay.setExplodedLabels(exploder.labels);
   const trapMarkerPos = sigils.positionOf('trap')!;
@@ -337,8 +338,39 @@ async function main() {
     if (s.id === 'trunk') actions.push({ label: 'Open the trunk', run: () => setView('trunk') });
     if (s.id === 'tape_deck') actions.push({ label: 'Switch tapes', run: () => music.switchTape() });
     if (s.id === 'engine') actions.push({ label: 'Pull it apart', run: () => setView('exploded') });
-    lore.show(s.lore, actions);
+    // page through this view's sigils; each turn swings the camera round to the next one
+    const list = sigilOrder(s.view);
+    const i = list.indexOf(s);
+    const n = list.length;
+    const nav = i >= 0 && n > 1
+      ? { index: i, total: n, prev: () => goToSigil(list[(i - 1 + n) % n]), next: () => goToSigil(list[(i + 1) % n]) }
+      : undefined;
+    lore.show(s.lore, actions, nav);
+    focusedSigil = s.id;
+    overlay.focus(s.id);
+    sigils.hovered = s.id;
   }
+
+  /** a view's sigils in reading order: outside, a walk round the car from the hood; inside, as listed */
+  function sigilOrder(view: HotspotView): Hotspot[] {
+    const spots = HOTSPOTS.filter((h) => h.view === view && !overlay.hidden.has(h.id));
+    if (view !== 'exterior') return spots;
+    const angle = (h: Hotspot) => {
+      const a = Math.atan2(h.pos[2], h.pos[0] - 0.25);
+      return a < -1e-6 ? a + Math.PI * 2 : a;
+    };
+    return spots.sort((a, b) => angle(a) - angle(b));
+  }
+
+  /** where a sigil should land on screen: left of the journal page, or above it on a phone */
+  const sigilScreen = (): [number, number] => (innerWidth <= 760 ? [0, 0.42] : [-0.34, 0.05]);
+
+  function goToSigil(s: Hotspot) {
+    const p = overlay.positionOf(s.id) ?? new THREE.Vector3(...s.pos);
+    director.focus(p, sigilScreen());
+    openHotspot(s);
+  }
+  let focusedSigil: string | null = null;
 
   function flipPlates() {
     markShadows();
@@ -478,14 +510,27 @@ async function main() {
       meshesOf(k).forEach((m) => box.expandByObject(m));
       return [k, box.getCenter(new THREE.Vector3())] as const;
     }));
+    // the board reads in the order the build laid it out (row by row, left to
+    // right: stored on each item as 'reading'); the tray reads by position
+    const readingOf = (k: string) => car.byName.get(`item_${k}`)?.userData.reading as number | undefined;
     const keyOf = (k: string) => {
       const p = at.get(k)!;
-      return onBoard(k) ? [0, -Math.round(p.y / 0.12), p.z] : [1, -Math.round(p.x / 0.14), p.z];
+      const r = readingOf(k);
+      if (onBoard(k)) return r === undefined ? [0, -Math.round(p.y / 0.12), p.z] : [0, r, 0];
+      return [1, -Math.round(p.x / 0.14), p.z];
     };
     const items = inventory.slice(1).sort((a, b) => {
       const ka = keyOf(a), kb = keyOf(b);
       return ka[0] - kb[0] || ka[1] - kb[1] || ka[2] - kb[2];
     });
+    // a second of something ('ammo_can_2': "Because one is never enough.") reads
+    // after the first, wherever it happens to lie
+    for (const k of items.filter((x) => /_2$/.test(x))) {
+      const first = k.slice(0, -2);
+      if (!items.includes(first)) continue;
+      items.splice(items.indexOf(k), 1);
+      items.splice(items.indexOf(first) + 1, 0, k);
+    }
     const list = ['trap', ...items];
     // only remember the order once the board is standing (positions move while it opens)
     if (trunk.progress >= 1) ordered = list;
@@ -506,6 +551,11 @@ async function main() {
   lore.onClose = () => {
     selectedKey = null;
     updateOutline();
+    if (focusedSigil) {
+      focusedSigil = null;
+      overlay.focus(null);
+      sigils.hovered = null;
+    }
   };
 
   let down: { x: number; y: number } | null = null;

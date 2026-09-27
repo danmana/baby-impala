@@ -60,6 +60,11 @@ export class Overlay {
     return this.markers.find((m) => m.spot.id === id)?.visible ?? false;
   }
 
+  /** keep one marker's label showing (the sigil whose page is open) */
+  focus(id: string | null) {
+    for (const m of this.markers) m.el.classList.toggle('focus', m.spot.id === id);
+  }
+
   positionOf(id: string): THREE.Vector3 | null {
     return this.markers.find((m) => m.spot.id === id)?.pos ?? null;
   }

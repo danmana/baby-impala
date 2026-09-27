@@ -433,11 +433,12 @@ def build(fa=None, ra=None):
     rifle = PH.import_ph('bolt_action_rifle_7_62', keep=['bolt_action_rifle_7_62', 'bolt_action_rifle_7_62_bolt_a',
                                                         'bolt_action_rifle_7_62_trigger', 'bolt_action_rifle_7_62_wrap'], tex_size=512)
     items.append(lay('rifle', rifle, -2.36, 0.0, 90))
-    items.append(lay('shotgun', P.pump_shotgun('p'), -2.19, -0.07, 90))
+    items.append(lay('shotgun', P.pump_shotgun('p'), -2.20, -0.17, 90))
     items.append(lay('bandolier', P.bandolier('p'), -2.17, -0.20, 94, lift=0.035, flat_it=False))
-    items.append(lay('sawed_off', P.sawed_off('p'), -2.19, 0.52, 93))
-    items.append(lay('emf', P.emf('p'), -2.265, 0.44, 88, flat_it=False))
-    items.append(lay('lock_picks', P.lockpicks('p'), -2.28, -0.62, 90, flat_it=False))
+    # no lane left for it: it lies across the rifle, the way guns pile up in a trunk
+    items.append(lay('sawed_off', P.sawed_off('p'), -2.355, 0.33, 92, lift=0.05))
+    items.append(lay('emf', P.emf('p'), -2.165, 0.50, 0, flat_it=False))
+    items.append(lay('lock_picks', P.lockpicks('p'), -2.36, -0.655, 0, flat_it=False))
 
     # ---------------------------------------------------------------- front-left: ammo and salt
     ammo = PH.import_ph('ammo_box')
@@ -451,26 +452,14 @@ def build(fa=None, ra=None):
     items.append(lay('rock_salt', P.shells_box('p', (5, 4), 'shell_red'), -2.00, 0.55, 0, flat_it=False))
 
     # ---------------------------------------------------------------- centre: the Colt, the journal, IDs
-    case = P.box_prop('colt_case', (0.40, 0.17, 0.045), 'wood_dark')
-    felt = L.box('colt_felt', (0.38, 0.15, 0.004), (0, 0, 0.046), 'felt_red')
-    gun = P.colt('colt_gun')
-    # lay it on its side in the case (the profile faces up)
-    gun.data.transform(Matrix.Rotation(-math.pi / 2, 4, 'X'))
-    gun.data.transform(Matrix.Translation((-0.05, 0.035, 0.062)))
-    # the thirteen rounds in two rows under the barrel, clear of the grip
-    rounds = [L.cylinder('colt_round', 0.0055, 0.03, (0.0 + 0.022 * i, -0.029, 0.052), axis='Y', segments=10, mat='silver')
-              for i in range(7)]
-    rounds += [L.cylinder('colt_round', 0.0055, 0.03, (0.011 + 0.022 * i, -0.061, 0.052), axis='Y', segments=10, mat='silver')
-               for i in range(6)]
-    case = L.join([case, felt, gun] + rounds, 'colt')
-    # grip towards the back of the car, so from behind it reads as a gun lying in its case
-    items.append(lay('colt', case, -1.985, -0.03, -90, flat_it=False))
+    case = P.colt_case('colt')
+    items.append(lay('colt', case, -1.968, -0.03, -90, flat_it=False))
     journal = PH.import_ph('binder_notebook', keep=['binder_notebook_closed'], tex_size=1024)
-    items.append(lay('journal', journal, -1.80, 0.15, 84, flat_it=False))
-    items.append(lay('silver_bullets', P.bullets_box('p'), -1.785, -0.035, 4, flat_it=False))
-    items.append(lay('fake_ids', P.badge_wallet('p'), -1.795, -0.14, 12, flat_it=False))
-    items.append(lay('fake_ids_2', P.badge_wallet('p'), -1.79, -0.15, -9, lift=0.013, flat_it=False))
-    items.append(lay('duct_tape', P.duct_tape('p'), -1.80, -0.225, 0, flat_it=False))
+    items.append(lay('journal', journal, -1.765, 0.1625, 90, flat_it=False))
+    items.append(lay('silver_bullets', P.bullets_box('p'), -1.785, 0.022, 4, flat_it=False))
+    items.append(lay('fake_ids', P.badge_wallet('p'), -1.795, -0.07, 12, flat_it=False))
+    items.append(lay('fake_ids_2', P.badge_wallet('p'), -1.79, -0.08, -9, lift=0.013, flat_it=False))
+    items.append(lay('duct_tape', P.duct_tape('p'), -1.80, -0.185, 0, flat_it=False))
 
     # ---------------------------------------------------------------- front-right: light, water, jars
     torch = PH.import_ph('vintage_flashlight', decimate=0.6)
@@ -497,26 +486,32 @@ def build(fa=None, ra=None):
     def put(key, obj, u, h, theta, spec, flat_it=True, stretch=None):
         o = mount(key, obj, u, h, theta, flat_it=flat_it, stretch=stretch)
         hardware.extend(fix(o, spec))
+        # the order the journal pages through the board: the order of these calls
+        o['reading'] = len(mounted)
         mounted.append(o)
 
+    # top row, left to right
+    put('sage', P.sage('p'), -0.625, 0.645, 90, [('clip', (0.3, 0.72))], flat_it=False)
     put('machete', PH.import_ph('machete', tex_size=1024), -0.12, 0.728, 0, [('rest', (-0.27, 0.2)), ('clip', (0.07,))])
     put('arrow', P.arrow('p'), -0.12, 0.645, 0, [('rest', (-0.25, 0.25))], flat_it=False)
     put('dreamcatcher', P.dreamcatcher('p'), 0.44, 0.60, 0, [('hang', 0.0)], flat_it=False)
     put('crowbar', PH.import_ph('crowbar_01'), 0.625, 0.45, 90, [('clip', (0.25, 0.7))])
-    put('sage', P.sage('p'), -0.625, 0.645, 90, [('clip', (0.3, 0.72))], flat_it=False)
+    # the blades and tools standing in a row
     put('hatchet', PH.import_ph('hatchet'), -0.605, 0.335, 90, [('flank',), ('clip', (0.2,))])
     put('bowie', P.bowie('p'), -0.495, 0.35, 90, [('flank',), ('clip', (0.14,))])
     put('silver_knife', PH.import_ph('fish_knife'), -0.405, 0.295, 90, [('flank',), ('clip', (0.2,))], stretch=(1.3, 0.9))
-    put('ruby_knife', P.ruby_knife('p'), -0.325, 0.33, 90, [('flank',), ('clip', (0.14,))])
-    put('angel_blade', P.angel_blade('p'), -0.245, 0.37, 90, [('clip', (0.14, 0.52))], flat_it=False)
+    # its guard is narrower than two hole columns either side of the grip: clips only
+    put('ruby_knife', P.ruby_knife('p'), -0.325, 0.33, 90, [('clip', (0.1, 0.28))], flat_it=False)
+    put('angel_blade', P.angel_blade('p'), -0.245, 0.38, 90, [('clip', (0.12, 0.3))], flat_it=False)
     put('stake', P.stake('p', 0.32, seed=1), -0.17, 0.335, 90, [('clip', (0.22, 0.6))], flat_it=False)
     put('stake_2', P.stake('p', 0.28, seed=4), -0.12, 0.315, 90, [('clip', (0.22, 0.6))], flat_it=False)
     put('hammer', PH.import_ph('cross_pein_hammer'), -0.03, 0.335, 90, [('flank',), ('clip', (0.2,))])
     put('cross', P.cross('p'), 0.15, 0.35, 90, [('rest', (-0.07, 0.07))], flat_it=False)
-    pistol = PH.import_ph('service_pistol', keep=['service_pistol_pistol_a', 'service_pistol_slide_a', 'service_pistol_hammer_a',
-                                                  'service_pistol_trigger_a'], decimate=0.45)
-    put('pistol', pistol, 0.40, 0.335, 0, [('clip', (0.3, 0.82))])
+    # Dean's M1911A1, hung by its trigger guard with a clip over the slide
+    pistol = P.m1911('p')
+    put('pistol', pistol, 0.40, 0.335, 0, [('hang', pistol['hang_du']), ('clip', (0.78,))], flat_it=False)
     put('brass_knuckles', P.knuckles('p'), 0.40, 0.205, 0, [('hang', -0.0125)], flat_it=False)
+    # the small things along the bottom
     put('flares', P.flare('p'), -0.50, 0.09, 0, [('rest', (-0.06, 0.06)), ('clip', (0.5,))], flat_it=False)
     put('chain', P.hanging_chain('p'), -0.12, 0.085, 0, [('hang', (-0.115, 0.115))], flat_it=False)
     put('hex_bag', P.hex_bag('p'), 0.30, 0.085, 0, [('rest', (0.0,))], flat_it=False)
