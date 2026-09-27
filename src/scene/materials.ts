@@ -118,7 +118,9 @@ export class Materials {
       // arches; Baby is kept spotless, so only the normals and AO survive
       // the body is low-poly with its smooth shape baked into the normal map;
       // the clear coat needs the same map, or it reflects the raw facets
-      const nScale = new THREE.Vector2(1, 1).multiply(src.normalScale);
+      // the loader flips the map's green channel for derivative tangents; the
+      // shell gets real tangents (car.ts), so undo that
+      const nScale = new THREE.Vector2(Math.abs(src.normalScale.x), Math.abs(src.normalScale.y));
       const p = new THREE.MeshPhysicalMaterial({
         normalMap: src.normalMap, normalScale: nScale,
         clearcoatNormalMap: src.normalMap, clearcoatNormalScale: nScale.clone(),

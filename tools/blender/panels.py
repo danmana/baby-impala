@@ -119,6 +119,24 @@ def separate(obj, name, test):
     return o
 
 
+def clean_normals(obj, angle=40):
+    """The source body carries custom (split) normals. Cutting it into panels
+    re-encodes them against the new topology, and they come out skewed: the
+    paint showed the low-poly facets as stepped bands. Drop them and let the
+    panels shade smooth, with creases only where the surface really folds."""
+    me = obj.data
+    if me.has_custom_normals:
+        L.activate(obj)
+        try:
+            bpy.ops.mesh.customdata_custom_splitnormals_clear()
+        except RuntimeError:
+            a = me.attributes.get('custom_normal')
+            if a is not None:
+                me.attributes.remove(a)
+    L.auto_smooth(obj, angle)
+    print('normals cleaned', obj.name, 'custom left:', me.has_custom_normals)
+
+
 ACCESSORIES = [
     'FrontHandle_Chrome', 'Backhandle_Chrome', 'Lock_Chrome', 'Sidechrome1_Chrome', 'Sidechrome2_Chrome',
     'Sidechrome3_Chrome', 'Sidechrome4_Chrome', 'Sidechrome5_Chrome', 'Sidechromedoor_Chrome',
@@ -137,6 +155,8 @@ def run():
         p = separate(body, name, test)
         if p:
             panels[name] = p
+    for o in [body, *panels.values()]:
+        clean_normals(o)
     # trim pieces ride along with their panel
     for acc in ACCESSORIES:
         o = bpy.data.objects.get(acc)
