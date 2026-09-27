@@ -21,6 +21,16 @@ export class Materials {
 
     add('chrome', std({ color: 0xf2f0ec, metalness: 1.0, roughness: 0.1, envMapIntensity: 1.3 }));
     add('mirror', std({ color: 0xffffff, metalness: 1.0, roughness: 0.01, envMapIntensity: 1.3 }));
+    // the dished wheels: concave, so a whole band of each one mirrors the sun or a
+    // bright sky at once and blooms like a lamp. Their brightness is capped just
+    // under the bloom threshold, so they stay bright polished chrome without a halo
+    const wheel = std({ color: 0xf2f0ec, metalness: 1.0, roughness: 0.12, envMapIntensity: 1.3 });
+    wheel.onBeforeCompile = (sh) => {
+      sh.fragmentShader = sh.fragmentShader.replace('#include <opaque_fragment>',
+        'outgoingLight = min(outgoingLight, vec3(0.8));\n#include <opaque_fragment>');
+    };
+    wheel.customProgramCacheKey = () => 'wheel-chrome';
+    add('chrome_wheel', wheel);
     add('steel', std({ color: 0x9a9a9a, metalness: 1.0, roughness: 0.32 }));
     add('steel_dark', std({ color: 0x3a3a3c, metalness: 1.0, roughness: 0.45 }));
     add('gunmetal', std({ color: 0x1c1c1f, metalness: 0.85, roughness: 0.38 }));

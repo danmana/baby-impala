@@ -125,6 +125,7 @@ export async function loadCar(buffer: ArrayBuffer, mats: Materials): Promise<Car
     else if (m.name.startsWith('tape_deck_dial')) m.material = dial;
     else if (m.name.startsWith('tape_deck_door')) m.material = door;
     else if (/^emf_led_\d$/.test(key)) m.material = led(Number(key.slice(-1)));
+    else if (key === 'chrome' && (m.name.startsWith('rim_') || m.parent?.name.startsWith('rim_'))) m.material = mats.get('chrome_wheel')!;
     else if (OWN_MATS.has(key)) m.material = mats.get(key)!;
     else m.material = mats.upgrade(src, m.name);
     // refractive glass (KHR_materials_transmission from the scanned bottles)
