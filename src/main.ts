@@ -1,6 +1,10 @@
+import { inject } from '@vercel/analytics';
 import * as THREE from 'three';
 import { HDRLoader } from 'three/addons/loaders/HDRLoader.js';
 import './styles.css';
+
+// Initialize Vercel Web Analytics
+inject();
 import { detectTier, qualityFor, reducedMotion, FrameGovernor, isTouch, stepTier, type Tier, type QualityMode } from './scene/quality';
 import { Stage } from './scene/stage';
 import { Materials } from './scene/materials';
