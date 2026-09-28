@@ -36,6 +36,7 @@ Handy URL flags while developing: `?autostart` skips the start screen, `?nointro
 | `tools/fetch_playlist.py` | Bakes a Spotify playlist into the "Real Deal" tape (`src/content/spotify-tape.json`): title, artist and id of each track with a 30-second preview, from Spotify's public embed page |
 | `tools/prop_textures.py` | Builds the wood and pegboard texture sets in `assets-src/props_tex/` from those scans (`.venv/bin/python tools/prop_textures.py`) |
 | `docs/research.md` | Research notes: trivia with episode references, trunk inventory, music |
+| `src/dev/`, `tools/capture/`, `tools/video/` | Dev-only video tooling, not part of the site's bundle. `capture.ts` runs the page on a virtual clock and records the shots in `shots.ts` frame by frame, encoding H.264 in the page (WebCodecs) and posting it to `tools/capture/server.py`. `tools/video/make.py demo\|trunk\|process` then cuts a video from those clips: journal-paper captions and drawn scenes (PIL), the site's music and sounds, into `.work/video/out/` |
 
 ### Rebuilding the car
 
