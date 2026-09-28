@@ -22,7 +22,7 @@ Handy URL flags while developing: `?autostart` skips the start screen, `?nointro
 
 | Path | What it is |
 | --- | --- |
-| `src/scene/` | Renderer, the Moon / Sunrise / Day lighting presets (HDRI reflections, sun or moon, sky gradient, a moon that sets and a sun that rises between them), the wet ground with planar puddle reflections, light shafts, dust, rain, the motel, the painted sigils, the camera director, the exploded view and the trunk sequence |
+| `src/scene/` | Renderer, the Moon / Sunrise / Day lighting presets (HDRI reflections, sun or moon, sky gradient, a moon and a sun that ride arcs round one celestial pole, so one sets as the other rises), the wet ground with planar puddle reflections, light shafts, dust, rain, the motel, the painted sigils, the camera director, the exploded view and the trunk sequence |
 | `src/boot/` | Staged loading: every asset is fetched with real byte progress, then textures are uploaded and every shader compiled before the start button appears |
 | `src/ui/` | The journal UI: loading page, index tabs, the checklist, lore pages, hotspot hit-targets, the cassette deck. Paper is built from a scanned page texture, stains and torn edges |
 | `src/audio/` | Recorded V8 start-up, seamless idle and shut-off, trunk latch and creak, tape-deck clunks, and the tape player (local MP3s + Spotify embed) |

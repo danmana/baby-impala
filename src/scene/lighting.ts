@@ -39,10 +39,24 @@ export interface Preset {
   orb: { body: 'moon' | 'sun'; elevation: number; size: number; color: number; intensity: number; halo: number; haloColor: number };
 }
 
-/** where the moon or the sun is in the sky right now, and how it looks */
-interface Body { az: number; el: number; size: number; color: THREE.Color; halo: THREE.Color }
+/**
+ * where the moon or the sun is right now, and how it looks: `th` is how far
+ * round its circle it has turned from its own preset's place (see SkyPath)
+ */
+interface Body { th: number; el: number; size: number; color: THREE.Color; halo: THREE.Color }
+/**
+ * The sky turns about one axis, the celestial pole, which stands ~44° up
+ * behind you when you face the sunrise. The moon and the sun each ride a
+ * circle round it, so they come up slanting from the left, arc over and go
+ * down to the right, the way they do up north. Changing preset turns each
+ * body along its circle; `rise` and `set` are where it waits below the
+ * horizon before it comes up and after it has gone down.
+ */
+interface SkyPath { from: THREE.Vector3; axis: THREE.Vector3; up: Partial<Record<PresetName, number>>; rise: number; set: number }
 /** how far below the horizon a body waits when it isn't up */
 const SET_EL = -0.22;
+/** how far the pole leans from the great circle through the sun's two places (more = rounder arcs) */
+const TILT = THREE.MathUtils.degToRad(30);
 
 const deg = THREE.MathUtils.degToRad;
 
@@ -218,6 +232,7 @@ export class LightingRig {
   private bodies = { moon: blankBody(), sun: blankBody() };
   private bodyFrom = { moon: blankBody(), sun: blankBody() };
   private bodyTo = { moon: blankBody(), sun: blankBody() };
+  private paths = skyPaths();
   current: PresetName = 'moon';
   private from: Preset = PRESETS.moon;
   private to: Preset = PRESETS.moon;
@@ -297,9 +312,11 @@ export class LightingRig {
     this.backdrop.renderOrder = -10;
     this.backdrop.name = 'sky';
     this.group.add(this.sun, this.sun.target, this.hemi, this.backdrop);
+    // night: the moon is up, the sun waits below the horizon to rise
+    this.bodyFrom.sun.th = this.paths.sun.rise;
     for (const k of ['moon', 'sun'] as const) {
-      bodyIn(PRESETS.moon, k, this.bodyFrom[k]);
-      bodyIn(PRESETS.moon, k, this.bodyTo[k]);
+      bodyTo(this.paths, 'moon', k, true, this.bodyFrom[k], this.bodyTo[k]);
+      copyBody(this.bodyFrom[k], this.bodyTo[k]);
     }
     this.apply(PRESETS.moon, PRESETS.moon, 1);
   }
@@ -308,10 +325,12 @@ export class LightingRig {
     if (name === this.current && this.t >= 1) return;
     this.from = this.snapshot();
     this.to = PRESETS[name];
+    // the day runs moon → sunrise → day → moon; only these two steps go back
+    const forward = !(this.current === 'sunrise' && name === 'moon') && !(this.current === 'day' && name === 'sunrise');
     this.current = name;
     for (const k of ['moon', 'sun'] as const) {
       copyBody(this.bodyFrom[k], this.bodies[k]);
-      bodyIn(PRESETS[name], k, this.bodyTo[k]);
+      bodyTo(this.paths, name, k, forward, this.bodyFrom[k], this.bodyTo[k]);
     }
     this.t = instant ? 1 : 0;
     this.envSwapped = instant;
@@ -327,7 +346,14 @@ export class LightingRig {
   retarget() {
     this.from = this.to = PRESETS[this.current];
     this.t = 1;
-    for (const k of ['moon', 'sun'] as const) bodyIn(this.to, k, this.bodyTo[k]);
+    this.paths = skyPaths();
+    for (const k of ['moon', 'sun'] as const) {
+      const b = this.bodies[k];
+      // a body that's down stays down, on the same side of the sky
+      if (b.el <= SET_EL + 0.02) b.th = b.th < 0 ? this.paths[k].rise : this.paths[k].set;
+      bodyTo(this.paths, this.current, k, true, b, this.bodyTo[k]);
+      copyBody(this.bodyFrom[k], this.bodyTo[k]);
+    }
   }
 
   /** the blended state right now, as a preset (for smooth re-targeting) */
@@ -384,19 +410,19 @@ export class LightingRig {
     this.sky.uTop.value.set(p.sky.top);
     this.sky.uGlow.value.set(p.sky.glow).multiplyScalar(p.sky.glowStrength);
     this.sky.uSun.value.copy(dir);
-    // the moon and the sun: each travels on its own, so one sets while the other rises
+    // the moon and the sun: each turns along its own arc, so one sets while the other rises
     const u = this.sky;
     for (const [key, o, col, size, halo] of [
       ['moon', u.uMoon, u.uMoonCol, u.uMoonSize, u.uMoonHalo],
       ['sun', u.uSunO, u.uSunCol, u.uSunSize, u.uSunHalo],
     ] as const) {
-      const f = this.bodyFrom[key], t = this.bodyTo[key], cur = this.bodies[key];
-      cur.az = lerpAngle(f.az, t.az, k);
-      cur.el = f.el + (t.el - f.el) * k;
+      const f = this.bodyFrom[key], t = this.bodyTo[key], cur = this.bodies[key], path = this.paths[key];
+      cur.th = f.th + (t.th - f.th) * k;
       cur.size = f.size + (t.size - f.size) * k;
       cur.color.copy(f.color).lerp(t.color, k);
       cur.halo.copy(f.halo).lerp(t.halo, k);
-      o.value.set(Math.cos(cur.el) * Math.cos(cur.az), Math.sin(cur.el), Math.cos(cur.el) * Math.sin(cur.az));
+      o.value.copy(path.from).applyAxisAngle(path.axis, cur.th);
+      cur.el = Math.asin(THREE.MathUtils.clamp(o.value.y, -1, 1));
       col.value.copy(cur.color);
       size.value = cur.size;
       // its glow goes with it once it's well below the horizon
@@ -451,27 +477,78 @@ function blend(a: Preset, b: Preset, k: number): Preset {
 }
 
 function blankBody(): Body {
-  return { az: 0, el: SET_EL, size: 0.03, color: new THREE.Color(0, 0, 0), halo: new THREE.Color(0, 0, 0) };
+  return { th: 0, el: SET_EL, size: 0.03, color: new THREE.Color(0, 0, 0), halo: new THREE.Color(0, 0, 0) };
 }
 
 function copyBody(to: Body, from: Body) {
-  to.az = from.az;
+  to.th = from.th;
   to.el = from.el;
   to.size = from.size;
   to.color.copy(from.color);
   to.halo.copy(from.halo);
 }
 
+/** where a preset draws its moon or sun: on the light's bearing, no higher than the orb elevation */
+function orbDir(p: Preset) {
+  const el = Math.min(p.sun.elevation, p.orb.elevation), az = p.sun.azimuth;
+  return new THREE.Vector3(Math.cos(el) * Math.cos(az), Math.sin(el), Math.cos(el) * Math.sin(az));
+}
+
 /**
- * Where `body` is in preset `p`: up where the preset's light is (drawn no
- * higher than its orb elevation), or waiting below the horizon on the bearing
- * of the preset it belongs to (the moon's night sky, the sun's sunrise).
+ * The two circles: the sun's passes through its sunrise and its day places,
+ * the moon's through its night place, both round the same pole. The pole
+ * sits on the plane halfway between the sun's two places (so both are on
+ * one circle), leaned TILT away from them.
  */
-function bodyIn(p: Preset, body: 'moon' | 'sun', out: Body) {
-  const up = p.orb.body === body;
-  const home = up ? p : body === 'moon' ? PRESETS.moon : PRESETS.sunrise;
-  out.az = home.sun.azimuth;
-  out.el = up ? Math.min(p.sun.elevation, p.orb.elevation) : SET_EL;
+function skyPaths(): Record<'moon' | 'sun', SkyPath> {
+  const a = orbDir(PRESETS.sunrise), b = orbDir(PRESETS.day);
+  const n = new THREE.Vector3().crossVectors(a, b).normalize();
+  if (n.y < 0) n.negate();
+  const mid = a.clone().add(b).normalize();
+  const axis = n.multiplyScalar(Math.cos(TILT)).addScaledVector(mid, -Math.sin(TILT)).normalize();
+  // turning forward carries the sun from its sunrise place towards its day place
+  const pa = a.clone().projectOnPlane(axis), pb = b.clone().projectOnPlane(axis);
+  if (new THREE.Vector3().crossVectors(pa, pb).dot(axis) < 0) axis.negate();
+  const path = (from: THREE.Vector3, up: SkyPath['up']): SkyPath =>
+    ({ from, axis, up, rise: belowAt(from, axis, -1), set: belowAt(from, axis, 1) });
+  return { sun: path(a, { sunrise: 0, day: pa.angleTo(pb) }), moon: path(orbDir(PRESETS.moon), { moon: 0 }) };
+}
+
+/** how far `from` turns round `axis` (backwards for sign -1) before it is SET_EL below the horizon */
+function belowAt(from: THREE.Vector3, axis: THREE.Vector3, sign: number) {
+  const y = Math.sin(SET_EL), v = new THREE.Vector3();
+  const low = (th: number) => v.copy(from).applyAxisAngle(axis, sign * th).y <= y;
+  let lo = 0, hi = 0;
+  while (hi < Math.PI * 2 && !low(hi)) {
+    lo = hi;
+    hi += 0.02;
+  }
+  for (let i = 0; i < 16; i++) {
+    const mid = (lo + hi) / 2;
+    if (low(mid)) hi = mid;
+    else lo = mid;
+  }
+  return sign * hi;
+}
+
+/**
+ * Where `body` goes for preset `name`: up at the preset's place, or down
+ * below the horizon. Going forward in the day (moon, sunrise, day, moon) a
+ * body sets ahead of itself and comes up from behind; going back it retraces
+ * its arc. A body already down stays where it is.
+ */
+function bodyTo(paths: Record<'moon' | 'sun', SkyPath>, name: PresetName, body: 'moon' | 'sun', forward: boolean, from: Body, out: Body) {
+  const p = PRESETS[name], path = paths[body];
+  const home = p.orb.body === body ? p : body === 'moon' ? PRESETS.moon : PRESETS.sunrise;
+  const down = from.el <= SET_EL + 0.02;
+  const up = path.up[name];
+  if (p.orb.body === body && up !== undefined) {
+    out.th = up;
+    // waiting on the wrong side of the horizon: come up from the other one (unseen)
+    if (down && (up > from.th) !== forward) from.th = forward ? path.rise : path.set;
+  } else {
+    out.th = down ? from.th : forward ? path.set : path.rise;
+  }
   out.size = home.orb.size;
   out.color.set(home.orb.color).multiplyScalar(home.orb.intensity);
   out.halo.set(home.orb.haloColor).multiplyScalar(home.orb.halo);
