@@ -21,6 +21,9 @@ export const reducedMotion = (): boolean =>
 export const isTouch = (): boolean =>
   typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
 
+/** a phone or small tablet: touch, and a screen under 900 px on its short side */
+export const isPhone = (): boolean => isTouch() && Math.min(screen.width, screen.height) < 900;
+
 function gpuString(): string {
   try {
     const c = document.createElement('canvas');
@@ -28,6 +31,9 @@ function gpuString(): string {
     if (!gl) return '';
     const ext = gl.getExtension('WEBGL_debug_renderer_info');
     const s = ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER);
+    // let go of this throwaway context now rather than whenever it's collected:
+    // phones allow only a few, and they share the GPU memory with the real one
+    gl.getExtension('WEBGL_lose_context')?.loseContext();
     return String(s || '');
   } catch {
     return '';
@@ -40,7 +46,7 @@ export function detectTier(): Tier {
   const gpu = gpuString().toLowerCase();
   const cores = navigator.hardwareConcurrency || 4;
   const mem = (navigator as Navigator & { deviceMemory?: number }).deviceMemory || 4;
-  const mobile = isTouch() && Math.min(screen.width, screen.height) < 900;
+  const mobile = isPhone();
   const weakGpu = /(mali-[gt]?[0-7]\d|adreno \(tm\) [1-5]\d\d|powervr|intel\(r\) (hd|uhd) graphics [2-6]\d\d|swiftshader|llvmpipe)/.test(gpu);
   if (weakGpu || cores <= 2 || mem <= 2) return 'low';
   if (mobile) return 'medium';

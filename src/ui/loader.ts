@@ -107,3 +107,25 @@ export class Loader {
     setTimeout(() => this.el.remove(), 1600);
   }
 }
+
+/**
+ * Shown when the browser takes the WebGL context away mid-visit (on phones,
+ * usually for running low on graphics memory). The scene can't be put back by
+ * hand, so this says so and offers a reload; Safari may refuse WebGL to that
+ * tab afterwards, hence the new-tab advice.
+ */
+export function showContextLost() {
+  if (document.querySelector('.lost')) return;
+  document.body.append(h('div', { class: 'lost sheet', role: 'alert' },
+    h('h2', {}, 'Baby stalled'),
+    h('p', {}, 'The browser took her graphics back, most likely because it ran low on memory.'),
+    h('p', {}, 'Reload the page. If she won’t start again, open it in a new tab.'),
+    h('button', { class: 'stamp', type: 'button', onclick: () => location.reload() }, 'Reload')));
+}
+
+/** the start-up error: a tab that won't give out WebGL needs different advice from one that failed to load */
+export function startError(err: unknown) {
+  return /webgl/i.test(String((err as Error)?.message ?? err))
+    ? 'This tab won’t start 3D graphics. If Baby crashed in it a moment ago, the browser has switched them off here: open the page in a new tab.'
+    : 'Baby wouldn’t start. Reload the page to try again.';
+}

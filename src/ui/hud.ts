@@ -298,7 +298,11 @@ export class Hud {
   }
 
   note(text: string | null) {
-    if (text) this.trunkNote.textContent = text;
+    // a view's own note replaces the opening hint (they share the bottom of the screen)
+    if (text) {
+      this.hideHint();
+      this.trunkNote.textContent = text;
+    }
     this.trunkNote.classList.toggle('show', !!text);
   }
 }

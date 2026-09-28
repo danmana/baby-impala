@@ -18,7 +18,7 @@ interface Marker {
 export class Overlay {
   readonly root: HTMLElement;
   private markers: Marker[] = [];
-  private xlabels: { el: HTMLElement; pos: THREE.Vector3; rot: number }[] = [];
+  private xlabels: { el: HTMLElement; pos: THREE.Vector3; rot: number; rank: number }[] = [];
   private xroot: HTMLElement;
   readonly tag: HTMLElement;
   private v = new THREE.Vector3();
@@ -69,12 +69,12 @@ export class Overlay {
     return this.markers.find((m) => m.spot.id === id)?.pos ?? null;
   }
 
-  setExplodedLabels(labels: { text: string; pos: THREE.Vector3 }[]) {
+  setExplodedLabels(labels: { text: string; pos: THREE.Vector3; rank: number }[]) {
     this.xroot.replaceChildren();
     this.xlabels = labels.map((l) => {
       const el = h('div', { class: 'xlabel' }, l.text);
       this.xroot.append(el);
-      return { el, pos: l.pos, rot: (Math.random() - 0.5) * 6 };
+      return { el, pos: l.pos, rot: (Math.random() - 0.5) * 6, rank: l.rank };
     });
   }
 
@@ -113,26 +113,35 @@ export class Overlay {
         m.el.classList.toggle('hidden', !vis);
       }
     }
-    // pencilled labels: project, then push apart any that would overlap
+    // pencilled labels: the dot stays on its part. The most important go first;
+    // a label that would cover one already placed, or run off the screen, fades
+    // out rather than being pushed away from its part (on a phone only the ones
+    // that fit show). Near the right edge the text goes to the left of the dot.
     const placed: { x: number; y: number; w: number; h: number }[] = [];
     const order = this.xlabels.map((l, i) => ({ l, i, p: this.project(l.pos, cam, w, hgt) }))
-      .sort((a, b) => a.p.y - b.p.y);
+      .sort((a, b) => a.l.rank - b.l.rank || a.p.y - b.p.y);
     for (const { l, i, p } of order) {
       const a = xl[i]?.alpha ?? 0;
       if (a <= 0.01 || p.behind) {
         l.el.style.opacity = '0';
         continue;
       }
-      const bw = l.el.offsetWidth || 120, bh = 26;
-      let y = p.y;
-      for (let k = 0; k < 6; k++) {
-        const hit = placed.find((q) => p.x < q.x + q.w && p.x + bw > q.x && y < q.y + q.h && y + bh > q.y);
-        if (!hit) break;
-        y = hit.y + hit.h + 2;
+      const bw = l.el.offsetWidth || 120, bh = l.el.offsetHeight || 26;
+      const flip = p.x + bw > w - 6;
+      // the dot's centre is about 5 px in from the label's end
+      const x = flip ? p.x - bw + 5 : p.x - 5;
+      const y = p.y - bh / 2;
+      const pad = 3;
+      const fits = x > 4 && x + bw < w - 4 && y > 4 && y + bh < hgt - 4 &&
+        !placed.some((q) => x < q.x + q.w + pad && x + bw + pad > q.x && y < q.y + q.h + pad && y + bh + pad > q.y);
+      l.el.classList.toggle('flip', flip);
+      if (!fits) {
+        l.el.style.opacity = '0';
+        continue;
       }
-      placed.push({ x: p.x, y, w: bw, h: bh });
+      placed.push({ x, y, w: bw, h: bh });
       l.el.style.opacity = String(a);
-      l.el.style.transform = `translate(${p.x.toFixed(1)}px, ${y.toFixed(1)}px) rotate(${l.rot.toFixed(1)}deg)`;
+      l.el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) rotate(${l.rot.toFixed(1)}deg)`;
     }
   }
 

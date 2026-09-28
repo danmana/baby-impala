@@ -60,7 +60,13 @@ export class Stage {
   }
 
   buildComposer() {
-    if (this.composer) this.composer.dispose();
+    if (this.composer) {
+      // the composer frees only its own two buffers; the outline and bloom passes
+      // hold a dozen more, which leaked on every quality change (and on phones
+      // that ran the GPU out of memory)
+      for (const p of this.composer.passes) p.dispose();
+      this.composer.dispose();
+    }
     const size = this.renderer.getDrawingBufferSize(new THREE.Vector2());
     const rt = new THREE.WebGLRenderTarget(Math.max(1, size.x), Math.max(1, size.y), {
       type: THREE.HalfFloatType,

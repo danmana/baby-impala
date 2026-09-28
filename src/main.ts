@@ -2,10 +2,8 @@ import { inject } from '@vercel/analytics';
 import * as THREE from 'three';
 import { HDRLoader } from 'three/addons/loaders/HDRLoader.js';
 import './styles.css';
-
-// Initialize Vercel Web Analytics
-inject();
-import { detectTier, qualityFor, reducedMotion, FrameGovernor, isTouch, stepTier, type Tier, type QualityMode } from './scene/quality';
+import { detectTier, qualityFor, reducedMotion, FrameGovernor, isTouch, isPhone, stepTier, type Tier, type QualityMode } from './scene/quality';
+import { fitTextures } from './scene/texbudget';
 import { Stage } from './scene/stage';
 import { Materials } from './scene/materials';
 import { loadCar, type CarParts } from './scene/car';
@@ -21,7 +19,7 @@ import { LightingRig, PRESETS, buildEnv, type PresetName } from './scene/lightin
 import { Sigils } from './scene/sigils';
 import { AudioEngine } from './audio/audio';
 import { MusicPlayer } from './audio/music';
-import { Loader } from './ui/loader';
+import { Loader, showContextLost, startError } from './ui/loader';
 import { Hud, type ToggleKey } from './ui/hud';
 import { LorePanel } from './ui/lore';
 import { Deck } from './ui/deck';
@@ -29,6 +27,9 @@ import { Overlay } from './ui/overlay';
 import { CAR, HOTSPOTS, TRAP, TRUNK_ITEMS, type Hotspot, type HotspotView } from './content/lore';
 import { Progress } from './boot/progress';
 import { fetchBytes, expectedBytes } from './boot/assets';
+
+// Vercel Web Analytics
+inject();
 
 const reduced = reducedMotion();
 const ui = document.getElementById('ui')!;
@@ -108,6 +109,13 @@ async function main() {
   let quality = qualityFor(tier);
   const stage = new Stage(document.getElementById('stage')!, quality);
   const { renderer, scene, camera } = stage;
+  renderer.domElement.addEventListener('webglcontextlost', (e) => {
+    // let the browser hand the context back if it will; the scene can't be rebuilt in place, so reload then
+    e.preventDefault();
+    console.warn('[baby] WebGL context lost');
+    showContextLost();
+  });
+  renderer.domElement.addEventListener('webglcontextrestored', () => location.reload());
   const maxAniso = renderer.capabilities.getMaxAnisotropy();
 
   // ---------------------------------------------------------------- downloads, all in parallel
@@ -246,6 +254,16 @@ async function main() {
   progress.done('sfx');
   camera.position.set(5.35, 1.02, -4.35);
   camera.lookAt(0.25, 0.62, 0);
+  // phones get smaller textures: at full size they alone would fill most of the GPU memory iOS allows a page
+  if (isPhone()) {
+    await fitTextures(scene, (o) => {
+      for (let p: THREE.Object3D | null = o; p; p = p.parent) {
+        if (p.userData.item) return 256;
+        if (p === motel.group) return 512;
+      }
+      return 1024;
+    });
+  }
   const textures = new Set<THREE.Texture>();
   scene.traverse((o) => {
     const m = (o as THREE.Mesh).material as THREE.Material | THREE.Material[] | undefined;
@@ -837,5 +855,5 @@ async function main() {
 
 main().catch((err) => {
   console.error(err);
-  loader.fail('Baby wouldn’t start. Reload the page to try again.');
+  loader.fail(startError(err));
 });

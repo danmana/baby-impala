@@ -508,6 +508,20 @@ button {
   transition: transform 0.15s ease, opacity 0.15s;
 }
 .stamp:nth-child(2) { transform: rotate(1.5deg); }
+/* the WebGL context was taken away */
+.lost {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  z-index: 100;
+  width: min(420px, 88vw);
+  padding: 30px 32px 26px 40px;
+  font-family: var(--type);
+  transform: translate(-50%, -50%) rotate(-1deg);
+}
+.lost h2 { font-family: var(--display); font-weight: 400; font-size: 46px; line-height: 0.95; margin: 0 0 12px; }
+.lost p { font-size: 15.5px; line-height: 1.55; margin: 0 0 10px; }
+.lost .stamp { margin-top: 8px; font-size: 22px; }
 .stamp:hover { opacity: 1; transform: rotate(-2deg) scale(1.05); }
 .stamp:active { transform: rotate(-2deg) scale(0.95); }
 /* the plate she's wearing, stamped like a little licence plate with its two bolts */
@@ -664,8 +678,10 @@ button {
   text-shadow: 0 2px 6px rgba(0, 0, 0, 0.9);
   white-space: nowrap;
   transform-origin: left center;
+  /* labels that don't fit fade out and back in as the camera moves */
+  transition: opacity 0.25s ease;
 }
-.xlabel::before {
+.xlabel::before, .xlabel.flip::after {
   content: '';
   display: inline-block;
   width: 7px;
@@ -675,6 +691,10 @@ button {
   border: 1.5px solid var(--bone);
   vertical-align: middle;
 }
+/* near the right edge the dot moves to the end and the text reads towards it */
+.xlabel.flip { transform-origin: right center; }
+.xlabel.flip::before { display: none; }
+.xlabel.flip::after { margin: 0 0 0 7px; }
 
 /* item tooltip in trunk view */
 .tag {
@@ -760,6 +780,9 @@ button {
   position: absolute;
   top: 12px;
   right: 14px;
+  /* the kicker and margin note are rotated, and transformed elements stack like
+     positioned ones: without this the kicker, later in the page, takes the taps */
+  z-index: 2;
   width: 36px;
   height: 36px;
   display: grid;
@@ -1009,6 +1032,7 @@ button {
 .journal-btn { display: none; }
 
 @media (max-width: 760px) {
+  .xlabel { font-size: 20px; }
   .title-scrap { left: 10px; top: calc(52px + var(--safe-t)); padding: 8px 14px 6px 12px; }
   .title-scrap strong { font-size: 40px; }
   .title-scrap span { font-size: 17px; }
