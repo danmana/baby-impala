@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>How Baby was built</title>
-    <meta name="description" content="Notes from building Baby, a fan page for the 1967 Chevrolet Impala from Supernatural: the Blender build, materials and lighting, the trunk, the journal UI, sound, performance and testing." />
+    <meta name="description" content="How an interactive 3D fan page for Baby, the ’67 Impala from Supernatural, was built: the Blender model, the trunk, lighting, sound and testing." />
     <meta name="theme-color" content="#0b0a09" />
     <link rel="canonical" href="https://baby-impala.vercel.app/about.html" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
@@ -16,7 +16,7 @@
     <meta property="og:type" content="article" />
     <meta property="og:url" content="https://baby-impala.vercel.app/about.html" />
     <meta property="og:title" content="How Baby was built" />
-    <meta property="og:description" content="Notes from building an interactive 3D fan page for Baby, the ’67 Impala from Supernatural: the Blender build, the trunk, materials and lighting, the journal UI, sound, performance and testing." />
+    <meta property="og:description" content="How a 3D fan page for Supernatural’s ’67 Impala was built: the Blender model, the trunk, the lighting and the testing." />
     <meta property="og:image" content="https://baby-impala.vercel.app/og/about.jpg" />
     <meta property="og:image:secure_url" content="https://baby-impala.vercel.app/og/about.jpg" />
     <meta property="og:image:type" content="image/jpeg" />
@@ -30,7 +30,7 @@
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:creator" content="@danmana" />
     <meta name="twitter:title" content="How Baby was built" />
-    <meta name="twitter:description" content="Notes from building an interactive 3D fan page for Baby, the ’67 Impala from Supernatural: the Blender build, the trunk, materials and lighting, the journal UI, sound, performance and testing." />
+    <meta name="twitter:description" content="How a 3D fan page for Supernatural’s ’67 Impala was built: the Blender model, the trunk, the lighting and the testing." />
     <meta name="twitter:image" content="https://baby-impala.vercel.app/og/about.jpg" />
     <meta name="twitter:image:alt" content="A journal page titled How Baby was built, with a taped photo of the Impala’s trunk pegboard full of hunting gear" />
     <link rel="stylesheet" href="/src/about/about.css" />
@@ -66,7 +66,7 @@
           <li><strong>A real pegboard</strong>, and the discovery that Dan's browser had been showing a three-day-old model.</li>
           <li><strong>From reference photos:</strong> Ruby's knife, the angel blade, the Colt, Dean's own gun, the EMF meter, the green cooler and the radio.</li>
           <li><strong>Real brand names</strong>, live EMF lights and a dash that finally clears the radio.</li>
-          <li><strong>Polish:</strong> a smooth hood, matte seats, wheels that don't glow, share cards and a Spotify tape that plays.</li>
+          <li><strong>Polish:</strong> a smooth hood, matte seats, wheels that don't glow, share cards, a Spotify tape that plays, and spotlights that look like spotlights.</li>
         </ol>
 
         <h2>The brief</h2>
@@ -191,6 +191,7 @@ gl_Position = p.xyww;   // depth is always 1.0: the sky never gets closer</code>
 
         <p>The spotlights sweep slowly outward, like someone searching the tree line, and stay level. In one version they dipped onto the hood and left a bright patch on the paint. In another, the driver-side lamp swept inward across the car, because I'd assumed which lamp was on which side instead of checking.</p>
         <p>Each shaft is marched inside a cone-shaped mesh, drawn from its inside faces. Until the last round, the cone's far end was open. A view ray that entered through the side and left through that open end hit no inside face, so it drew nothing, even though it had passed through the beam. Seen side-on, every beam ended in a hard, bright arc. Closing the far end fixed it. I only noticed while retaking the pictures for this page.</p>
+        <p>The lamps themselves came up in the last round, too. Dan said they looked like chrome spheres, not spotlights, and they did: the housing was a rounded egg, and on closer inspection it was inside out. The lathe that spins a profile into a solid winds its faces backwards for profiles drawn towards the front, so the shell's faces pointed inward. You saw through the near wall to the inside of the far one, which made it look like a mirrored ball. Each lamp is now a short chrome can with a flat back, a rear boss, a seam ring and a stepped bezel. Behind the glass you can see the reflector bowl and the bulb. The beams also got wider (about 8° instead of 4°) and scatter more evenly, because a pencil-thin beam that scatters mostly forward is only visible when it points at you.</p>
         <p>The spotlights only rode along for the first few seasons, so switched off, they come off the car completely, together with their sigil and their label in the exploded view. Hiding the lamp housing outright would also have removed the light inside it, and a changed light count makes three.js recompile every shader. So the meshes move to a layer no camera renders instead.</p>
 
         <h2>The trunk</h2>
@@ -220,13 +221,13 @@ gl_Position = p.xyww;   // depth is always 1.0: the sky never gets closer</code>
           <li><strong>Contact shadows are baked in.</strong> Cycles renders ambient occlusion and a soft lamp above the board straight into the pegboard's texture, so each piece leaves a faint shadow on the board.</li>
           <li><strong>The weakest props were rebuilt:</strong> whittled seven-sided stakes, a cross of two weathered slats lashed with twine, road flares with striker caps, brass knuckles cut from one plate, a proper rosary, a cinched hex bag and a chain hanging in a curve between two pegs.</li>
         </ul>
-        <p>Two blades still weren't right, so Dan sent reference photos of them (for modelling only; they aren't shown here). Ruby's knife now has the prop's clip point sweeping up to the tip, five scallops cut into the edge, a thin oval guard and a knobbly stag grip. An etched line follows the scallops, and a row of runes runs along the spine. The runes are invented: strokes hung on a shared baseline. The etching is a texture of frosted, rougher steel, so it shows against the polish. The angel blade got a long three-sided blade that tapers straight to the point, with a fuller down each face, and a polished collar that flares into a plain tube grip and a cone pommel.</p>
+        <p>Two blades still weren't right, so Dan sent reference photos of them (for modelling only; they aren't shown here). Ruby's knife now has the prop's clip point sweeping up to the tip, five scallops cut into the edge, a thin oval guard and a knobbly stag grip. The etching is black, as on the prop: a banner outline that runs along the spine, follows the scallops and ends in a notched ribbon towards the tip, with a line of script inside it. The script is invented: strokes hung on a shared baseline. (The first etch was frosted steel on polished steel, and Dan could barely see it.) The angel blade got a long three-sided blade that tapers straight to the point, with a fuller down each face, and a polished collar that flares into a plain tube grip and a cone pommel.</p>
 
         <h3>From reference photos</h3>
         <p>Next, Dan sent reference photos for a handful of the most recognisable pieces, and they were rebuilt to match:</p>
         <ul>
           <li><strong>The Colt</strong> is a Paterson revolver in antiqued silver now. It has a long octagonal barrel with three bands at the muzzle and "non timebo mala" along it in blackletter, floral scrollwork on the frame and lug, a banded cylinder and a walnut grip with a pentagram burned into it. It lies in a black case with its thirteen rounds standing in a rack below, each one numbered by hand. The textures are generated: scrollwork drawn as curling stems with leaves, the motto set in UnifrakturMaguntia (an OFL font), the numbers in the journal's handwriting.</li>
-          <li><strong>Dean's own gun</strong> replaced the generic pistol on the board: a nickel-plated Colt M1911A1, engraved all over, with ivory grips, gold Colt medallions (a rearing horse on black) and polished screws. It hangs by its trigger guard. The first version was stainless with pearl grips, after the wiki's opening line and my reading of the photo. The same wiki page's notes say nickel plate and ivory, and Dan confirmed it. Fixing it turned up a second bug: the grips had been built as metal, which is part of why they looked like pearl.</li>
+          <li><strong>Dean's own gun</strong> replaced the generic pistol on the board: a nickel-plated Colt M1911A1, engraved all over, with ivory grips, gold Colt medallions (a rearing horse on black) and polished screws. It hangs by its trigger guard. The engraving is on the slide only, as on Dan's reference photo: a band of acanthus scrollwork (curling C-scrolls and pointed leaves off a running vine) with a small panel behind the rear serrations. The leaves are bright, their cut lines dark, and the background between them matte and stippled. The frame is plain mirror-polished nickel. The texture is generated and mapped onto the slide's two sides. The first version was stainless with pearl grips, after the wiki's opening line and my reading of the photo. The same wiki page's notes say nickel plate and ivory, and Dan confirmed it. Fixing it turned up a second bug: the grips had been built as metal, which is part of why they looked like pearl.</li>
           <li><strong>The EMF meter</strong> is the one the brothers carry for most of the show, not the Walkman Dean built in "Phantom Traveler". It's a bare green perfboard with an analogue meter, five red LEDs, a telescopic aerial wound with a red coil, a copper spring, loops of coloured wire and a toggle switch. It used to be hidden under the rifle, so it moved to its own spot in the tray, turned so the meter reads from behind the car. Its LEDs are live: the first two always lit, the other three flickering on and off, left to right, as if the reading were wandering between two and five. Each LED has its own material, so the page can light them one by one.</li>
           <li><strong>Both shotguns</strong> looked like plastic. They're now blued steel with worn edges and fine scratches, and walnut, and the sawed-off has a proper side-by-side action and pistol grip. The sawed-off also used to poke out through the left wall of the tray. A small script now prints every tray item's footprint and flags anything that crosses a wall or overlaps a neighbour. There's no free lane left for it, so it lies across the rifle, the way guns pile up in a real trunk.</li>
         </ul>
@@ -237,7 +238,7 @@ gl_Position = p.xyww;   // depth is always 1.0: the sky never gets closer</code>
             <figcaption>The Colt and its thirteen rounds.</figcaption>
           </div>
           <div class="photo tilt-l">
-            <img src="/about/m1911.webp" width="1000" height="688" loading="lazy" alt="Dean's nickel-plated, engraved M1911A1 with ivory grips and a gold medallion, hanging on the pegboard above the brass knuckles." />
+            <img src="/about/m1911.webp" width="1000" height="688" loading="lazy" alt="Dean's nickel-plated M1911A1 with scroll engraving along the slide, ivory grips and a gold medallion, hanging on the pegboard above the brass knuckles." />
             <figcaption>Dean's M1911A1, hung by its trigger guard.</figcaption>
           </div>
         </figure>
@@ -255,7 +256,7 @@ gl_Position = p.xyww;   // depth is always 1.0: the sky never gets closer</code>
             <figcaption>The pegboard: every piece on pegs in real holes, or in a clip shaped to it.</figcaption>
           </div>
           <div class="photo tilt-l">
-            <img src="/about/knives_ref.webp" width="1000" height="833" loading="lazy" alt="Close-up of Ruby's knife and the angel blade on the pegboard: the polished, scalloped blade with etched runes, a thin disc guard and a stag grip, and the long three-sided angel blade with its chrome collar and tube grip." />
+            <img src="/about/knives_ref.webp" width="1000" height="833" loading="lazy" alt="Close-up of the knives on the pegboard: Ruby's knife with its black etched banner and script, a thin disc guard and a stag grip, next to the long three-sided angel blade and two whittled stakes." />
             <figcaption>Ruby's knife and the angel blade, rebuilt from reference photos.</figcaption>
           </div>
         </figure>

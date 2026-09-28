@@ -21,7 +21,7 @@ const OWN_MATS = new Set([
   'carpet', 'carpet_gray', 'strap', 'twine', 'sage', 'feather', 'feather_dark', 'bottle_glass', 'blood_glass', 'oil_glass',
   'salt_blue', 'ammo_green', 'cardboard', 'shell_red', 'paper', 'plastic_black', 'red_plastic', 'zippo_blue',
   'tape', 'burlap', 'canvas_olive', 'bead_blue', 'led_red', 'led_green', 'engine', 'engine_dark', 'underbody',
-  'radiator', 'wire_red', 'spot_lens', 'black', 'rubber', 'plastic_olive', 'dial', 'lens_clear', 'lego_red',
+  'radiator', 'wire_red', 'spot_lens', 'spot_shell', 'black', 'rubber', 'plastic_olive', 'dial', 'lens_clear', 'lego_red',
   'lego_blue', 'lego_yellow', 'army_green', 'trap_paint', 'paint', 'tire',
 ]);
 

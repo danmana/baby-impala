@@ -37,14 +37,31 @@ def rims(fa, ra):
 
 def spotlight(side, pivot, mount):
     sfx = 'l' if side > 0 else 'r'
-    housing = L.lathe('spot_housing', [(-0.085, 0.0), (-0.082, 0.025), (-0.07, 0.045), (-0.045, 0.058),
-                                       (-0.01, 0.062), (0.02, 0.063), (0.026, 0.060), (0.024, 0.056)],
-                      segments=40, mat='chrome', axis='X')
-    ring = L.lathe('spot_ring', [(0.018, 0.064), (0.028, 0.064), (0.030, 0.058)], segments=40, mat='chrome',
-                   axis='X')
-    lens = L.lathe('spot_lens', [(0.024, 0.056), (0.030, 0.035), (0.032, 0.0)], segments=40,
+    # a '60s pillar spotlight: a short chrome can with a flat back and a rear
+    # boss, a stepped bezel, and a glass lens with the reflector bowl and bulb
+    # showing through it. Lens towards +X.
+    housing = L.lathe('spot_housing', [(-0.056, 0.0), (-0.056, 0.013), (-0.053, 0.017), (-0.05, 0.02),
+                                       (-0.049, 0.032), (-0.046, 0.043), (-0.04, 0.052), (-0.029, 0.0585),
+                                       (-0.014, 0.0615), (0.016, 0.0615)],
+                      segments=48, mat='spot_shell', axis='X')
+    seam = L.lathe('spot_seam', [(-0.0045, 0.0612), (-0.0045, 0.0628), (-0.0005, 0.0628), (-0.0005, 0.0612)],
+                   segments=48, mat='chrome', axis='X', close=True)
+    bezel = L.lathe('spot_bezel', [(0.016, 0.0615), (0.016, 0.0655), (0.02, 0.067), (0.029, 0.067),
+                                   (0.032, 0.064), (0.032, 0.0585), (0.029, 0.0565)],
+                    segments=48, mat='chrome', axis='X')
+    reflector = L.lathe('spot_reflector', [(0.026, 0.056), (0.012, 0.048), (-0.002, 0.036), (-0.012, 0.022),
+                                           (-0.017, 0.009), (-0.018, 0.0)],
+                        segments=40, mat='mirror', axis='X')
+    reflector.data.flip_normals()
+    bulb = L.lathe('spot_bulb', [(-0.018, 0.0), (-0.016, 0.006), (-0.004, 0.007), (0.004, 0.005), (0.007, 0.0)],
+                   segments=16, mat='lens_clear', axis='X')
+    lens = L.lathe('spot_lens', [(0.027, 0.0565), (0.029, 0.04), (0.0305, 0.02), (0.031, 0.0)], segments=48,
                    mat='spot_lens', axis='X')
-    o = L.join([housing, ring, lens], f'spotlight_{sfx}')
+    boss = L.cylinder('spot_boss', 0.009, 0.012, (-0.06, 0, 0), axis='X', segments=16, mat='chrome', bevel=0.002)
+    # the lathe winds faces inward for profiles drawn towards +X: turn these outwards
+    for part in (housing, bezel, bulb, lens):
+        part.data.flip_normals()
+    o = L.join([housing, seam, bezel, reflector, bulb, lens, boss], f'spotlight_{sfx}')
     L.auto_smooth(o, 45)
     o.location = pivot
     # stalk through the pillar and a small yoke

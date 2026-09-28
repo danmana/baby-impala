@@ -229,8 +229,10 @@ async function main() {
     atmo.addBeam(b, holder, 12, 0.35);
   });
   const spotBeams: Beam[] = lights.spotPivots.map((p) => {
-    const b: Beam = { origin: new THREE.Vector3(), dir: new THREE.Vector3(1, 0, 0), cos: Math.cos(0.075), range: 30, intensity: 0, color: new THREE.Color(1, 0.95, 0.86) };
-    atmo.addBeam(b, p, 22, 0.6);
+    // wide enough (about 8 degrees) and scattering evenly enough (g 0.25) that the
+    // shaft shows from the side, not only when it points at you
+    const b: Beam = { origin: new THREE.Vector3(), dir: new THREE.Vector3(1, 0, 0), cos: Math.cos(0.14), range: 30, intensity: 0, color: new THREE.Color(1, 0.95, 0.86) };
+    atmo.addBeam(b, p, 22, 0.25);
     return b;
   });
   progress.done('scene');
@@ -740,7 +742,7 @@ async function main() {
       p.getWorldPosition(b.origin);
       p.getWorldQuaternion(tmpQ);
       b.dir.set(1, 0, 0).applyQuaternion(tmpQ);
-      b.intensity = lights.spotOn * 0.85;
+      b.intensity = lights.spotOn * 1.5;
     });
     ground.uniforms.uGrid.value = exploder.progress;
     motel.update(dt, t, live.haze);

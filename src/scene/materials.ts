@@ -79,7 +79,12 @@ export class Materials {
     add('underbody', std({ color: 0x060606, roughness: 0.95, envMapIntensity: 0.15 }));
     add('radiator', std({ color: 0x0d0d0d, roughness: 0.5, metalness: 0.6 }));
     add('wire_red', std({ color: 0x7a0e08, roughness: 0.5 }));
-    add('spot_lens', phy({ color: 0xc9c7bd, roughness: 0.06, clearcoat: 1, emissive: 0xfff2dc, emissiveIntensity: 0, metalness: 0.3 }));
+    // the spotlight's glass: see-through, so the reflector bowl and bulb show behind it
+    add('spot_lens', phy({ color: 0xd8d6cf, roughness: 0.04, emissive: 0xfff2dc, emissiveIntensity: 0, metalness: 0,
+      transparent: true, opacity: 0.35, depthWrite: false, envMapIntensity: 1.4 }));
+    // the spotlight's shell: chrome, a touch softer than the trim so it reads as a
+    // turned can, not a mirror ball
+    add('spot_shell', std({ color: 0xe8e5de, metalness: 1.0, roughness: 0.2, envMapIntensity: 1.1 }));
     add('black', std({ color: 0x030303, roughness: 0.55 }));
     add('rubber', std({ color: 0x080808, roughness: 0.7 }));
     add('plastic_olive', std({ color: 0x7b7650, roughness: 0.55 }));

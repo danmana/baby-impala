@@ -150,21 +150,42 @@ def ruby_blade(w=1024, h=256):
     to_px = lambda x, y: (x / L * w * S, (1 - (y - y0) / (y1 - y0)) * h * S)
     mask = Image.new('L', (w * S, h * S), 0)
     d = ImageDraw.Draw(mask)
-    lw = 6
-    # the bevel line: the scalloped edge's outline, 4 mm in, run up to the point
-    edge = spec['edge']
-    off = [(x, y + 0.0044) for x, y in edge if 0.012 <= x <= 0.182]
-    d.line([to_px(*p) for p in off] + [to_px(L - 0.004, 0.0035)], fill=255, width=lw, joint='curve')
-    # the line by the guard, bowed towards the point
-    d.line([to_px(0.011 + 0.002 * math.sin(math.pi * t), -0.0138 + 0.0296 * t) for t in [i / 12 for i in range(13)]],
-           fill=255, width=lw, joint='curve')
-    # the script band: invented runes between the bevel line and the spine
+    lw = 12
+
+    def interp(pts, x):
+        for (xa, ya), (xb, yb) in zip(pts, pts[1:]):
+            if xa <= x <= xb:
+                return ya + (yb - ya) * (x - xa) / (xb - xa)
+        return pts[-1][1]
+    top = lambda x: interp(spec['spine'], x) - 0.0034
+    bot = lambda x: interp(spec['edge'], x) + 0.0046
+    # the banner, as on the prop: a black outline along the spine and round the
+    # scallops, rounded at the guard end, ending in a notched ribbon towards the tip
+    xa, xb = 0.016, 0.146
+    rc = 0.004
+    ya_t, ya_b = top(xa + rc), bot(xa + rc)
+    arc = lambda cx, cy, a0, a1: [(cx + rc * math.cos(a), cy + rc * math.sin(a))
+                                   for a in [a0 + (a1 - a0) * i / 6 for i in range(7)]]
+    # up the guard end, round the top corner, along the spine
+    path = arc(xa + rc, ya_b + rc, math.pi, math.pi / 2)[::-1][::-1]
+    path = [(xa, ya_b + rc)] + [(xa, ya_t - rc)] + arc(xa + rc, ya_t - rc, math.pi, math.pi / 2)
+    path += [(x, top(x)) for x in [xa + rc + (xb - xa - rc) * i / 40 for i in range(41)]]
+    # the ribbon: two tails either side of a V notch
+    mid_tip = (top(xb) + bot(xb + 0.006)) / 2
+    path += [(xb + 0.013, top(xb) - 0.0015), (xb + 0.002, mid_tip), (xb + 0.016, bot(xb + 0.012) + 0.001), (xb + 0.006, bot(xb + 0.006))]
+    # back along the scallops, round the bottom corner
+    path += [(x, bot(x)) for x in [xb + 0.006 - (xb + 0.006 - xa - rc) * i / 80 for i in range(81)]]
+    path += arc(xa + rc, ya_b + rc, -math.pi / 2, -math.pi)
+    path.append(path[0])
+    d.line([to_px(*p) for p in path], fill=255, width=lw, joint='curve')
+    # the script inside it: one line of invented runes along the blade
     rnd = random.Random(1966)
-    x, cy, gh = 0.022, 0.0068, 0.006
-    while x < 0.126:
+    x, gh = 0.026, 0.0085
+    while x < xb - 0.01:
+        cy = (top(x) + max(bot(x - 0.004), bot(x), bot(x + 0.004))) / 2
         cx, py = to_px(x, cy)
-        glyph(d, cx, py, gh / (y1 - y0) * h * S, rnd, lw)
-        x += gh * rnd.uniform(0.72, 0.95)
+        glyph(d, cx, py, gh / (y1 - y0) * h * S, rnd, 11)
+        x += gh * rnd.uniform(0.68, 0.85)
     mask = mask.resize((w, h), Image.LANCZOS)
     m = np.asarray(mask).astype(np.float32) / 255
 
@@ -174,8 +195,9 @@ def ruby_blade(w=1024, h=256):
     streak = np.asarray(Image.fromarray(((streak * 0.5 + 0.5).clip(0, 1) * 255).astype(np.uint8)).filter(
         ImageFilter.GaussianBlur(0.6))).astype(np.float32) / 255
     base = 0.8 + 0.035 * (streak - 0.5)
-    col = base * (1 - 0.2 * m)
-    rough = 0.13 + 0.05 * streak + 0.45 * m
+    # the etch is black, as on the prop
+    col = base * (1 - 0.93 * m)
+    rough = 0.13 + 0.05 * streak + 0.42 * m
     height = -np.asarray(Image.fromarray((m * 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(1.2))).astype(np.float32) / 255
     gy, gx = np.gradient(height)
     n = np.stack([-gx * 3, gy * 3, np.ones_like(height)], -1)
@@ -333,25 +355,164 @@ def colt_textures():
     save(_normal(-n * 0.6, 1.5), 'colt_rounds_nor')
 
 
+def acanthus(size, band, rear, seed=3):
+    """Scroll engraving in the style of a hand-engraved 1911 slide: a vine
+    running along the band throwing off curled C-scrolls with acanthus leaves.
+    Returns (fill, line, back) masks in 0..1 at `size`: the bright polished
+    leaves, the dark cut lines, and the matte background they sit on.
+    band / rear: (x0, x1, y0, y1) in 0..1 of the image (y from the top)."""
+    import random
+    rnd = random.Random(seed)
+    S = 3
+    W, H = size[0] * S, size[1] * S
+    fill = Image.new('L', (W, H), 0)
+    back = Image.new('L', (W, H), 0)
+    lines = Image.new('L', (W, H), 0)
+    df, db, dl = ImageDraw.Draw(fill), ImageDraw.Draw(back), ImageDraw.Draw(lines)
+
+    def leaf(base, direction, length, width, curl):
+        """a pointed acanthus lobe from `base` along `direction` (radians),
+        its tip curling over, with shading cuts inside"""
+        pts_l, pts_r, spine, cut1, cut2 = [], [], [], [], []
+        for i in range(17):
+            t = i / 16
+            a = direction + curl * t ** 1.6
+            px = base[0] + math.cos(direction) * length * t * 0.5 + math.cos(a) * length * t * 0.5
+            py = base[1] + math.sin(direction) * length * t * 0.5 + math.sin(a) * length * t * 0.5
+            w = width * math.sin(math.pi * min(t * 1.08, 1.0)) ** 1.1 * (1 - 0.45 * t)
+            nx, ny = -math.sin(a), math.cos(a)
+            pts_l.append((px + nx * w, py + ny * w))
+            pts_r.append((px - nx * w * 0.75, py - ny * w * 0.75))
+            spine.append((px, py))
+            cut1.append((px + nx * w * 0.45, py + ny * w * 0.45))
+            cut2.append((px - nx * w * 0.35, py - ny * w * 0.35))
+        df.polygon(pts_l + list(reversed(pts_r)), fill=255)
+        lw = max(1, int(S * 0.7))
+        dl.line(spine[1:-3], fill=255, width=lw, joint='curve')
+        dl.line(cut1[3:-5], fill=200, width=lw, joint='curve')
+        dl.line(cut2[4:-6], fill=160, width=lw, joint='curve')
+
+    def scroll(c, R, turns, sense, a0, w0):
+        """a C-scroll: a tapering stroke curling into a spiral round `c`"""
+        k = math.log(6) / (2 * math.pi * turns)
+        n = int(60 * turns)
+        outer, inner, mid = [], [], []
+        for i in range(n + 1):
+            th = 2 * math.pi * turns * i / n
+            r = R * math.exp(-k * th)
+            a = a0 + sense * th
+            w = w0 * (1 - 0.75 * i / n)
+            ux, uy = math.cos(a), math.sin(a)
+            outer.append((c[0] + ux * (r + w / 2), c[1] + uy * (r + w / 2)))
+            inner.append((c[0] + ux * (r - w / 2), c[1] + uy * (r - w / 2)))
+            mid.append((c[0] + ux * r, c[1] + uy * r, a, r))
+        df.polygon(outer + list(reversed(inner)), fill=255)
+        # leaves thrown off the outside of the curl
+        for t in (0.0, 0.12, 0.26, 0.4, 0.55):
+            x, y, a, r = mid[int(t * n)]
+            base = (c[0] + math.cos(a) * (r + w0 * 0.3), c[1] + math.sin(a) * (r + w0 * 0.3))
+            leaf(base, a + sense * 1.0, R * (1.25 - 1.1 * t), w0 * (1.3 - 1.2 * t), sense * 1.5)
+        dl.line([(p[0], p[1]) for p in mid[int(n * 0.55):]], fill=255, width=max(1, int(S * 0.8)), joint='curve')
+
+    # the main band: the vine and its scrolls, packed along it
+    x0, x1, y0, y1 = band
+    bx0, bx1, by0, by1 = x0 * W, x1 * W, y0 * H, y1 * H
+    bh = by1 - by0
+    cy = (by0 + by1) / 2
+    P = bh * 1.45
+    amp = bh * 0.18
+    vy = lambda x: cy + amp * math.sin(2 * math.pi * (x - bx0) / P)
+    vine = [(x, vy(x)) for x in range(int(bx0 + bh * 0.2), int(bx1 - bh * 0.25), 2)]
+    df.line(vine, fill=255, width=int(bh * 0.07), joint='curve')
+    k = 0
+    x = bx0 + P * 0.25
+    while x < bx1 - bh * 0.45:
+        up = k % 2 == 0
+        sense = 1 if up else -1
+        R = bh * rnd.uniform(0.25, 0.29)
+        c = (x + P * 0.1, cy + (-1 if up else 1) * bh * 0.13)
+        scroll(c, R, 1.45, sense, math.pi / 2 if up else -math.pi / 2, bh * 0.13)
+        # leaves on the far side of the vine, between the scrolls
+        lx = x - P * 0.14
+        leaf((lx, vy(lx)), (math.pi / 2 if up else -math.pi / 2) + 0.35 * sense, bh * 0.36, bh * 0.1, 0.9 * sense)
+        lx2 = x + P * 0.3
+        leaf((lx2, vy(lx2)), (math.pi / 2 if up else -math.pi / 2) - 0.25 * sense, bh * 0.3, bh * 0.08, -0.7 * sense)
+        x += P / 2
+        k += 1
+    # a leafy tail where the band ends towards the muzzle
+    for d, L_, cv in ((0.05, 0.55, -0.5), (-0.55, 0.42, 0.6), (0.6, 0.38, -0.8)):
+        leaf((bx1 - bh * 0.5, cy + amp * 0.3), d, bh * L_, bh * 0.1, cv)
+    # the engraved background: the gaps round and between the leaves, not a box
+    band_box = Image.new('L', (W, H), 0)
+    ImageDraw.Draw(band_box).rectangle([bx0 - bh * 0.3, by0 - bh * 0.1, bx1 + bh * 0.3, by1 + bh * 0.1], fill=255)
+    halo = fill.filter(ImageFilter.MaxFilter(int(bh * 0.05) | 1)).filter(ImageFilter.GaussianBlur(bh * 0.03))
+    halo = Image.fromarray(((np.asarray(halo).astype(np.float32) > 60) * 255).astype(np.uint8))
+    back.paste(halo, (0, 0), band_box)
+
+    # the small panel behind the serrations: one scroll with its leaves
+    rx0, rx1, ry0, ry1 = rear
+    rb = [rx0 * W, ry0 * H, rx1 * W, ry1 * H]
+    rh = rb[3] - rb[1]
+    panel_fill = Image.new('L', (W, H), 0)
+    before = np.asarray(fill).copy()
+    scroll(((rb[0] + rb[2]) / 2, (rb[1] + rb[3]) / 2), rh * 0.3, 1.3, 1, math.pi, rh * 0.14)
+    added = Image.fromarray(np.clip(np.asarray(fill).astype(np.int16) - before, 0, 255).astype(np.uint8))
+    rhalo = added.filter(ImageFilter.MaxFilter(int(rh * 0.1) | 1)).filter(ImageFilter.GaussianBlur(rh * 0.05))
+    rhalo = Image.fromarray(((np.asarray(rhalo).astype(np.float32) > 60) * 255).astype(np.uint8))
+    back.paste(rhalo, (0, 0), rhalo)
+
+    f = np.asarray(fill).astype(np.float32) / 255
+    b = np.asarray(back).astype(np.float32) / 255
+    # the cut line round every leaf and scroll: the fill grown by a hair, minus the fill
+    grown = np.asarray(fill.filter(ImageFilter.MaxFilter(2 * S + 1))).astype(np.float32) / 255
+    l = np.clip(grown - f + np.asarray(lines).astype(np.float32) / 255, 0, 1) * b
+    down = lambda a: np.asarray(Image.fromarray((a * 255).astype(np.uint8)).resize(size, Image.LANCZOS)).astype(np.float32) / 255
+    return down(f * b), down(l), down(b)
+
+
 def m1911_textures():
-    """Dean's M1911A1: nickel plate (plain, and engraved with scrollwork like
-    the reference), and ivory for the grips."""
+    """Dean's M1911A1: mirror-polished nickel (plain), and the slide's
+    engraving mapped onto its sides; ivory for the grips."""
     rng = np.random.default_rng(21)
     streak = np.repeat(rng.normal(0, 1, (512, 1)), 512, 1).astype(np.float32)
     streak = (streak - streak.min()) / (streak.max() - streak.min())
     blot = _wrap_noise(rng, 512, 512, 12)
-    # nickel: brighter and warmer than stainless, with a faint yellow cast
-    tone = 1 + 0.045 * (streak - 0.5) + 0.05 * (blot - 0.5)
-    nickel = np.array([0.8, 0.76, 0.67], np.float32)
+    # nickel: brighter and warmer than stainless, with a faint yellow cast, polished
+    nickel = np.array([0.84, 0.8, 0.71], np.float32)
+    tone = 1 + 0.03 * (streak - 0.5) + 0.04 * (blot - 0.5)
     col = nickel * tone[..., None]
-    rough = 0.2 + 0.05 * streak + 0.06 * (1 - blot)
+    rough = 0.1 + 0.03 * streak + 0.04 * (1 - blot)
     save(Image.fromarray((col.clip(0, 1) * 255).astype(np.uint8)), 'm1911_plain_col')
     save(Image.fromarray((rough.clip(0, 1) * 255).astype(np.uint8)), 'm1911_plain_rough')
     save(_normal(np.zeros((8, 8), np.float32), 1), 'm1911_plain_nor')
-    e = scrolls(512, 512, 17, spacing=40, width=2)
-    save(Image.fromarray(((col * (1 - 0.62 * e)[..., None]).clip(0, 1) * 255).astype(np.uint8)), 'm1911_engraved_col')
-    save(Image.fromarray(((rough + 0.38 * e).clip(0, 1) * 255).astype(np.uint8)), 'm1911_engraved_rough')
-    save(_normal(-e * 0.6, 1.2), 'm1911_engraved_nor')
+    for old in ('m1911_engraved_col', 'm1911_engraved_rough', 'm1911_engraved_nor'):
+        path = os.path.join(OUT, old + '.png')
+        if os.path.exists(path):
+            os.remove(path)
+
+    # the slide side: u along the slide (rear -> muzzle), v across it (top row = top edge).
+    # Layout in slide lengths, matching the geometry in props.m1911: the serrations run
+    # from 0.085 to 0.21; the scroll band from 0.24 to 0.9, over the top two thirds
+    sw, sh = 1400, 200
+    f, l, b = acanthus((sw, sh), band=(0.24, 0.9, 0.1, 0.7), rear=(0.012, 0.07, 0.14, 0.64))
+    stipple = (rng.random((sh, sw)) > 0.5).astype(np.float32)
+    stipple = np.asarray(Image.fromarray((stipple * 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(0.6))).astype(np.float32) / 255
+    base = np.array([0.84, 0.8, 0.71], np.float32)
+    matte = base * (0.42 + 0.1 * stipple)[..., None]
+    bright = base * 1.02
+    dark = np.array([0.1, 0.09, 0.08], np.float32)
+    c = base[None, None, :] * np.ones((sh, sw, 1), np.float32)
+    c = c * (1 - b[..., None]) + matte * b[..., None]
+    c = c * (1 - f[..., None]) + bright * f[..., None]
+    c = c * (1 - l[..., None]) + dark * l[..., None]
+    r = 0.1 * (1 - b) + (0.55 + 0.1 * stipple) * b
+    r = r * (1 - f) + 0.12 * f
+    r = r * (1 - l) + 0.6 * l
+    height = -0.5 * b + 0.45 * f - 0.4 * l
+    save(Image.fromarray((c.clip(0, 1) * 255).astype(np.uint8)), 'm1911_slide_col')
+    save(Image.fromarray((r.clip(0, 1) * 255).astype(np.uint8)), 'm1911_slide_rough')
+    save(_normal(height, 2.0), 'm1911_slide_nor')
+
     # ivory: warm cream, a fine grain running along the grip, faint cross-hatch
     # (the Schreger lines of real ivory) and a little yellowing in patches
     y, x = np.mgrid[0:512, 0:512].astype(np.float32)

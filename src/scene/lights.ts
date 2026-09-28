@@ -45,7 +45,7 @@ export class Lights {
     for (const side of ['l', 'r']) {
       const lamp = car.byName.get(`spotlight_${side}`);
       if (!lamp) continue;
-      const s = new THREE.SpotLight(0xfff0d8, 0, 60, 0.075, 0.45, 1.25);
+      const s = new THREE.SpotLight(0xfff0d8, 0, 60, 0.14, 0.5, 1.25);
       s.position.set(0.04, 0, 0);
       const tgt = new THREE.Object3D();
       tgt.position.set(5, 0, 0);
@@ -80,7 +80,7 @@ export class Lights {
     this.mats.setLamp('signal', 1.2 * h * ls);
     this.mats.setLamp('dial', 1.6 * h);
     this.cabin.intensity += (this.cabinTarget - this.cabin.intensity) * Math.min(1, dt * 3);
-    for (const s of this.spots) s.intensity = 1400 * this.spotOn;
+    for (const s of this.spots) s.intensity = 1700 * this.spotOn;
     this.mats.setLamp('spot_lens', 3.2 * this.spotOn * ls);
   }
 }

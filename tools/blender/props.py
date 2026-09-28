@@ -445,15 +445,33 @@ def m1911(name):
     Profile in XY with the muzzle towards +X, the controls on the +Z side.
     Sets obj['hang_du']: where a peg through the trigger guard goes, from the
     middle of its bounding box along X."""
-    E, Pn = 'm1911_engraved', 'm1911_plain'
+    Pn = 'm1911_plain'
     sw, fw = 0.0235, 0.021                  # slide and frame widths
     parts = []
     slide = [(-0.084, 0.0), (0.127, 0.0), (0.128, 0.026), (0.1255, 0.0302), (-0.0805, 0.0302), (-0.084, 0.026)]
-    parts.append(_outline_part(name + '_slide', slide, sw, E, 0.0016))
-    # rear serrations on both sides, the sights
+    # the slide: plain polished nickel, its two sides carrying the engraving
+    # (u along the slide from the rear, v up it; see prop_textures.m1911_textures)
+    sl = L.extrude_outline(name + '_slide', slide, sw, None, bevel_w=0.0016)
+    sl.data.transform(Matrix.Translation((0, 0, -sw / 2)))
+    me = sl.data
+    me.materials.append(PH.tex_material(Pn, 1.0))
+    me.materials.append(PH.tex_material('m1911_slide', 1.0))
+    PH.uv_unwrap(sl)
+    uv = me.uv_layers.active
+    x0s, x1s, h = -0.084, 0.128, 0.0302
+    for poly in me.polygons:
+        if abs(poly.normal.z) < 0.9:
+            continue
+        poly.material_index = 1
+        for li in poly.loop_indices:
+            co = me.vertices[me.loops[li].vertex_index].co
+            u = (co.x - x0s) / (x1s - x0s)
+            uv.data[li].uv = (u if poly.normal.z > 0 else 1 - u, co.y / h)
+    parts.append(sl)
+    # rear serrations on both sides, between the rear scroll panel and the engraved band
     for i in range(12):
         for zs in (1, -1):
-            parts.append(_tex(L.box(name + '_ser', (0.0011, 0.023, 0.0007), (-0.0812 + 0.0024 * i, 0.0145, zs * (sw / 2 + 0.0002)), None),
+            parts.append(_tex(L.box(name + '_ser', (0.0011, 0.023, 0.0007), (-0.0645 + 0.0022 * i, 0.0145, zs * (sw / 2 + 0.0002)), None),
                               Pn, 1.0))
     parts.append(_tex(L.box(name + '_fs', (0.0045, 0.0045, 0.003), (0.1195, 0.032, 0), None, bevel=0.0006), Pn, 1.0))
     parts.append(_tex(L.box(name + '_rs', (0.0065, 0.004, 0.012), (-0.075, 0.032, 0), None, bevel=0.0006), Pn, 1.0))
@@ -461,13 +479,13 @@ def m1911(name):
     frame = [(0.085, 0.0), (-0.084, 0.0), (-0.084, 0.001), (-0.096, 0.003), (-0.1, -0.002), (-0.086, -0.004), (-0.078, -0.012),
              (-0.075, -0.03), (-0.078, -0.06), (-0.084, -0.09), (-0.086, -0.108), (-0.058, -0.103), (-0.055, -0.095), (-0.045, -0.06),
              (-0.035, -0.03), (-0.028, -0.013), (0.036, -0.012), (0.06, -0.011), (0.082, -0.009), (0.085, -0.004)]
-    parts.append(_outline_part(name + '_frame', frame[::-1], fw, E, 0.0014))
+    parts.append(_outline_part(name + '_frame', frame[::-1], fw, Pn, 0.0014))
     # trigger guard: a swept loop hanging from the frame, and the trigger
     loop = L.catmull([Vector(p) for p in [(0.036, -0.011, 0), (0.037, -0.02, 0), (0.031, -0.031, 0), (0.016, -0.036, 0),
                                           (-0.004, -0.035, 0), (-0.017, -0.03, 0), (-0.024, -0.02, 0), (-0.026, -0.011, 0)]], 5)
     guard = L.sweep(name + '_guard', loop, [(-0.0055, -0.0018), (0.0055, -0.0018), (0.0055, 0.0018), (-0.0055, 0.0018)], None,
                     fixed_side=Vector((0, 0, 1)))
-    parts.append(_tex(guard, E, 1.0))
+    parts.append(_tex(guard, Pn, 1.0))
     parts.append(_outline_part(name + '_trig', [(-0.006, -0.012), (-0.004, -0.024), (-0.006, -0.027), (-0.0105, -0.025),
                                                   (-0.011, -0.012)][::-1], 0.005, Pn, 0.0008))
     # hammer, thumb safety, slide stop, magazine catch (on the +Z side)
@@ -480,7 +498,7 @@ def m1911(name):
         o.data.transform(Matrix.Translation((0, 0, side)))
         parts.append(o)
     catch = L.cylinder(name + '_catch', 0.0042, 0.0026, (-0.031, -0.019, fw / 2 + 0.0008), axis='Z', segments=16, bevel=0.0006)
-    parts.append(_tex(catch, 'm1911_engraved', 1.0))
+    parts.append(_tex(catch, Pn, 1.0))
     # ivory grips with a gold medallion and two screws, both sides; the lanyard loop
     panel = [(-0.034, -0.016), (-0.044, -0.05), (-0.052, -0.08), (-0.056, -0.098), (-0.082, -0.1), (-0.08, -0.08), (-0.075, -0.05),
              (-0.072, -0.02), (-0.074, -0.014)][::-1]
