@@ -2,7 +2,7 @@
 
 An unofficial fan page for **Baby**, Dean Winchester's black 1967 Chevrolet Impala four-door hardtop from *Supernatural*.
 
-Walk around her on a patch of wet asphalt by moonlight, at sunset or in daylight, start the engine, sweep the A-pillar spotlights through the fog, open the trunk to see the Winchester arsenal under the Devil's Trap, climb inside to find the army man and the Legos, pull her apart in an exploded workshop view, and play Dean's tapes on a copy of her slot-loading deck.
+Walk around her on a patch of wet asphalt by moonlight, at sunrise or in daylight, start the engine, sweep the A-pillar spotlights through the fog, open the trunk to see the Winchester arsenal under the Devil's Trap, climb inside to find the army man and the Legos, pull her apart in an exploded workshop view, and play Dean's tapes on a copy of her slot-loading deck.
 
 Built with [three.js](https://threejs.org) and Vite. Everything the site needs ships in this repo; the one external service is the optional Spotify tape.
 
@@ -16,13 +16,13 @@ npm run build      # production build into dist/
 
 Every file in `public/` is fetched with a content hash in its URL (`?v=…`, from the `virtual:asset-sizes` plugin), so a rebuilt model or sound never comes out of a stale browser cache.
 
-Handy URL flags while developing: `?autostart` skips the start screen, `?nointro` skips the reveal, `?light=moon|sunset|day` picks the lighting, `?quality=low|medium|high` forces a quality tier. Viewers can also pick Auto / Low / Med / High in the checklist (remembered per browser), with a live FPS readout next to it. Auto steps down when it can't hold ~30 fps and back up when it holds ~55.
+Handy URL flags while developing: `?autostart` skips the start screen, `?nointro` skips the reveal, `?light=moon|sunrise|day` picks the lighting, `?quality=low|medium|high` forces a quality tier. Viewers can also pick Auto / Low / Med / High in the checklist (remembered per browser), with a live FPS readout next to it. Auto steps down when it can't hold ~30 fps and back up when it holds ~55.
 
 ## What's in here
 
 | Path | What it is |
 | --- | --- |
-| `src/scene/` | Renderer, the Moon / Sunset / Day lighting presets (HDRI reflections, sun or moon, sky gradient), the wet ground with planar puddle reflections, light shafts, dust, rain, the motel, the painted sigils, the camera director, the exploded view and the trunk sequence |
+| `src/scene/` | Renderer, the Moon / Sunrise / Day lighting presets (HDRI reflections, sun or moon, sky gradient, a moon that sets and a sun that rises between them), the wet ground with planar puddle reflections, light shafts, dust, rain, the motel, the painted sigils, the camera director, the exploded view and the trunk sequence |
 | `src/boot/` | Staged loading: every asset is fetched with real byte progress, then textures are uploaded and every shader compiled before the start button appears |
 | `src/ui/` | The journal UI: loading page, index tabs, the checklist, lore pages, hotspot hit-targets, the cassette deck. Paper is built from a scanned page texture, stains and torn edges |
 | `src/audio/` | Recorded V8 start-up, seamless idle and shut-off, trunk latch and creak, tape-deck clunks, and the tape player (local MP3s + Spotify embed) |

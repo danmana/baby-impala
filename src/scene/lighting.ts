@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 
-export type PresetName = 'moon' | 'sunset' | 'day';
+export type PresetName = 'moon' | 'sunrise' | 'day';
 
 export interface Preset {
   label: string;
@@ -36,8 +36,13 @@ export interface Preset {
    * angular radius, `intensity` its brightness (above 1 it blooms), `halo`
    * the glow the fog scatters round it
    */
-  orb: { elevation: number; size: number; color: number; intensity: number; halo: number; haloColor: number };
+  orb: { body: 'moon' | 'sun'; elevation: number; size: number; color: number; intensity: number; halo: number; haloColor: number };
 }
+
+/** where the moon or the sun is in the sky right now, and how it looks */
+interface Body { az: number; el: number; size: number; color: THREE.Color; halo: THREE.Color }
+/** how far below the horizon a body waits when it isn't up */
+const SET_EL = -0.22;
 
 const deg = THREE.MathUtils.degToRad;
 
@@ -60,10 +65,10 @@ export const PRESETS: Record<PresetName, Preset> = {
     haze: 1,
     bloom: 0.5,
     lamps: 1,
-    orb: { elevation: deg(11), size: 0.024, color: 0xe6ecff, intensity: 1.7, halo: 0.32, haloColor: 0x7d8cb8 },
+    orb: { body: 'moon', elevation: deg(11), size: 0.024, color: 0xe6ecff, intensity: 1.7, halo: 0.32, haloColor: 0x7d8cb8 },
   },
-  sunset: {
-    label: 'Sunset',
+  sunrise: {
+    label: 'Sunrise',
     hdri: 'hdri/sunset.hdr',
     envIntensity: 1.1,
     envRotation: deg(24),
@@ -80,7 +85,7 @@ export const PRESETS: Record<PresetName, Preset> = {
     haze: 0.55,
     bloom: 0.42,
     lamps: 0.75,
-    orb: { elevation: deg(8), size: 0.042, color: 0xffb46a, intensity: 2.6, halo: 0.55, haloColor: 0xff8a4a },
+    orb: { body: 'sun', elevation: deg(8), size: 0.042, color: 0xffb46a, intensity: 2.6, halo: 0.55, haloColor: 0xff8a4a },
   },
   day: {
     label: 'Day',
@@ -100,7 +105,7 @@ export const PRESETS: Record<PresetName, Preset> = {
     haze: 0.12,
     bloom: 0.25,
     lamps: 0.45,
-    orb: { elevation: deg(13), size: 0.034, color: 0xfff6e8, intensity: 1.5, halo: 0.22, haloColor: 0xfff0dc },
+    orb: { body: 'sun', elevation: deg(14), size: 0.034, color: 0xfff6e8, intensity: 1.5, halo: 0.22, haloColor: 0xfff0dc },
   },
 };
 
@@ -204,9 +209,15 @@ export class LightingRig {
   private sky = {
     uTop: { value: new THREE.Color() }, uHorizon: { value: new THREE.Color() },
     uGlow: { value: new THREE.Color() }, uSun: { value: new THREE.Vector3(1, 0, 0) },
-    uOrb: { value: new THREE.Vector3(1, 0, 0) }, uOrbCol: { value: new THREE.Color() }, uOrbSize: { value: 0.03 },
-    uHalo: { value: new THREE.Color() },
+    uMoon: { value: new THREE.Vector3(1, 0, 0) }, uMoonCol: { value: new THREE.Color() }, uMoonSize: { value: 0.03 },
+    uMoonHalo: { value: new THREE.Color() },
+    uSunO: { value: new THREE.Vector3(1, 0, 0) }, uSunCol: { value: new THREE.Color() }, uSunSize: { value: 0.03 },
+    uSunHalo: { value: new THREE.Color() },
   };
+  /** the moon and the sun, each moving from where it was to where the preset wants it */
+  private bodies = { moon: blankBody(), sun: blankBody() };
+  private bodyFrom = { moon: blankBody(), sun: blankBody() };
+  private bodyTo = { moon: blankBody(), sun: blankBody() };
   current: PresetName = 'moon';
   private from: Preset = PRESETS.moon;
   private to: Preset = PRESETS.moon;
@@ -249,11 +260,24 @@ export class LightingRig {
           gl_Position = p.xyww;
         }`,
       fragmentShader: `uniform vec3 uTop; uniform vec3 uHorizon; uniform vec3 uGlow; uniform vec3 uSun; varying vec3 vDir;
-        uniform vec3 uOrb; uniform vec3 uOrbCol; uniform float uOrbSize; uniform vec3 uHalo;
+        uniform vec3 uMoon; uniform vec3 uMoonCol; uniform float uMoonSize; uniform vec3 uMoonHalo;
+        uniform vec3 uSunO; uniform vec3 uSunCol; uniform float uSunSize; uniform vec3 uSunHalo;
         float h21(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
         float vn(vec2 p) {
           vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
           return mix(mix(h21(i), h21(i + vec2(1, 0)), f.x), mix(h21(i + vec2(0, 1)), h21(i + vec2(1, 1)), f.x), f.y);
+        }
+        // a moon or sun through the fog: a soft-edged disc, a tight corona and a wide
+        // glow; it sinks behind the horizon haze as it sets
+        vec3 orb(vec3 d, vec3 o, vec3 col, float size, vec3 halo, float maria, float fade) {
+          float a = acos(clamp(dot(d, o), -1.0, 1.0));
+          float disc = 1.0 - smoothstep(size * 0.72, size * 1.25, a);
+          vec3 t1 = normalize(cross(o, vec3(0.0, 1.0, 0.0)));
+          vec3 t2 = cross(t1, o);
+          vec2 q = vec2(dot(d, t1), dot(d, t2)) / size;
+          float mottle = 1.0 - maria * (1.0 - vn(q * 2.2 + 3.0));
+          float veil = 0.78 + 0.22 * vn(q * 0.8 + vec2(o.x * 9.0, 0.0));
+          return (col * disc * mottle * veil + halo * (0.55 * exp(-a / (size * 2.2)) + 0.45 * exp(-a / 0.3))) * fade;
         }
         void main() {
           vec3 d = normalize(vDir);
@@ -261,18 +285,9 @@ export class LightingRig {
           vec3 c = mix(uHorizon, uTop, smoothstep(0.0, 0.6, e));
           float toward = max(dot(normalize(d.xz + 1e-5), normalize(uSun.xz + 1e-5)), 0.0);
           c += uGlow * pow(toward, 5.0) * smoothstep(-0.02, 0.06, e) * (1.0 - smoothstep(0.05, 0.45, e));
-          // the moon or sun through the fog: a soft-edged disc, a tight corona and a wide glow
-          float a = acos(clamp(dot(d, uOrb), -1.0, 1.0));
-          float disc = 1.0 - smoothstep(uOrbSize * 0.72, uOrbSize * 1.25, a);
-          // faint maria on the moon, drifting fog over any disc
-          vec3 t1 = normalize(cross(uOrb, vec3(0.0, 1.0, 0.0)));
-          vec3 t2 = cross(t1, uOrb);
-          vec2 q = vec2(dot(d, t1), dot(d, t2)) / uOrbSize;
-          float mottle = 0.82 + 0.18 * vn(q * 2.2 + 3.0);
-          float veil = 0.78 + 0.22 * vn(q * 0.8 + vec2(uOrb.x * 9.0, 0.0));
           float fade = smoothstep(-0.01, 0.09, e);
-          c += uOrbCol * disc * mottle * veil * fade;
-          c += uHalo * (0.55 * exp(-a / (uOrbSize * 2.2)) + 0.45 * exp(-a / 0.3)) * fade;
+          c += orb(d, uMoon, uMoonCol, uMoonSize, uMoonHalo, 0.18, fade);
+          c += orb(d, uSunO, uSunCol, uSunSize, uSunHalo, 0.0, fade);
           c += (fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) - 0.5) / 255.0;
           gl_FragColor = vec4(c, 1.0);
         }`,
@@ -282,6 +297,10 @@ export class LightingRig {
     this.backdrop.renderOrder = -10;
     this.backdrop.name = 'sky';
     this.group.add(this.sun, this.sun.target, this.hemi, this.backdrop);
+    for (const k of ['moon', 'sun'] as const) {
+      bodyIn(PRESETS.moon, k, this.bodyFrom[k]);
+      bodyIn(PRESETS.moon, k, this.bodyTo[k]);
+    }
     this.apply(PRESETS.moon, PRESETS.moon, 1);
   }
 
@@ -290,6 +309,10 @@ export class LightingRig {
     this.from = this.snapshot();
     this.to = PRESETS[name];
     this.current = name;
+    for (const k of ['moon', 'sun'] as const) {
+      copyBody(this.bodyFrom[k], this.bodies[k]);
+      bodyIn(PRESETS[name], k, this.bodyTo[k]);
+    }
     this.t = instant ? 1 : 0;
     this.envSwapped = instant;
     if (instant) this.onEnvSwap?.(name);
@@ -304,6 +327,7 @@ export class LightingRig {
   retarget() {
     this.from = this.to = PRESETS[this.current];
     this.t = 1;
+    for (const k of ['moon', 'sun'] as const) bodyIn(this.to, k, this.bodyTo[k]);
   }
 
   /** the blended state right now, as a preset (for smooth re-targeting) */
@@ -319,7 +343,8 @@ export class LightingRig {
   update(dt: number) {
     this.cabin += (this.cabinTarget - this.cabin) * Math.min(1, dt * 2.5);
     if (this.t < 1) {
-      this.t = Math.min(1, this.t + dt / 1.1);
+      // long enough to watch the moon set and the sun come up
+      this.t = Math.min(1, this.t + dt / 2.4);
       if (!this.envSwapped && this.t >= 0.5) {
         this.envSwapped = true;
         this.onEnvSwap?.(this.current);
@@ -359,11 +384,24 @@ export class LightingRig {
     this.sky.uTop.value.set(p.sky.top);
     this.sky.uGlow.value.set(p.sky.glow).multiplyScalar(p.sky.glowStrength);
     this.sky.uSun.value.copy(dir);
-    const oe = Math.min(p.sun.elevation, p.orb.elevation);
-    this.sky.uOrb.value.set(Math.cos(oe) * Math.cos(p.sun.azimuth), Math.sin(oe), Math.cos(oe) * Math.sin(p.sun.azimuth));
-    this.sky.uOrbCol.value.set(p.orb.color).multiplyScalar(p.orb.intensity);
-    this.sky.uOrbSize.value = p.orb.size;
-    this.sky.uHalo.value.set(p.orb.haloColor).multiplyScalar(p.orb.halo);
+    // the moon and the sun: each travels on its own, so one sets while the other rises
+    const u = this.sky;
+    for (const [key, o, col, size, halo] of [
+      ['moon', u.uMoon, u.uMoonCol, u.uMoonSize, u.uMoonHalo],
+      ['sun', u.uSunO, u.uSunCol, u.uSunSize, u.uSunHalo],
+    ] as const) {
+      const f = this.bodyFrom[key], t = this.bodyTo[key], cur = this.bodies[key];
+      cur.az = lerpAngle(f.az, t.az, k);
+      cur.el = f.el + (t.el - f.el) * k;
+      cur.size = f.size + (t.size - f.size) * k;
+      cur.color.copy(f.color).lerp(t.color, k);
+      cur.halo.copy(f.halo).lerp(t.halo, k);
+      o.value.set(Math.cos(cur.el) * Math.cos(cur.az), Math.sin(cur.el), Math.cos(cur.el) * Math.sin(cur.az));
+      col.value.copy(cur.color);
+      size.value = cur.size;
+      // its glow goes with it once it's well below the horizon
+      halo.value.copy(cur.halo).multiplyScalar(THREE.MathUtils.smoothstep(cur.el, SET_EL + 0.06, 0.02));
+    }
   }
 }
 
@@ -404,9 +442,37 @@ function blend(a: Preset, b: Preset, k: number): Preset {
     bloom: n(a.bloom, b.bloom),
     lamps: n(a.lamps, b.lamps),
     orb: {
+      body: k < 0.5 ? a.orb.body : b.orb.body,
       elevation: n(a.orb.elevation, b.orb.elevation), size: n(a.orb.size, b.orb.size),
       color: lerpColor(a.orb.color, b.orb.color, k), intensity: n(a.orb.intensity, b.orb.intensity),
       halo: n(a.orb.halo, b.orb.halo), haloColor: lerpColor(a.orb.haloColor, b.orb.haloColor, k),
     },
   };
+}
+
+function blankBody(): Body {
+  return { az: 0, el: SET_EL, size: 0.03, color: new THREE.Color(0, 0, 0), halo: new THREE.Color(0, 0, 0) };
+}
+
+function copyBody(to: Body, from: Body) {
+  to.az = from.az;
+  to.el = from.el;
+  to.size = from.size;
+  to.color.copy(from.color);
+  to.halo.copy(from.halo);
+}
+
+/**
+ * Where `body` is in preset `p`: up where the preset's light is (drawn no
+ * higher than its orb elevation), or waiting below the horizon on the bearing
+ * of the preset it belongs to (the moon's night sky, the sun's sunrise).
+ */
+function bodyIn(p: Preset, body: 'moon' | 'sun', out: Body) {
+  const up = p.orb.body === body;
+  const home = up ? p : body === 'moon' ? PRESETS.moon : PRESETS.sunrise;
+  out.az = home.sun.azimuth;
+  out.el = up ? Math.min(p.sun.elevation, p.orb.elevation) : SET_EL;
+  out.size = home.orb.size;
+  out.color.set(home.orb.color).multiplyScalar(home.orb.intensity);
+  out.halo.set(home.orb.haloColor).multiplyScalar(home.orb.halo);
 }

@@ -801,10 +801,11 @@ async function main() {
     });
   };
 
-  // test hooks: ?autostart skips the start button, ?nointro skips the reveal, ?light=sunset|day
+  // test hooks: ?autostart skips the start button, ?nointro skips the reveal, ?light=sunrise|day
   const params = new URLSearchParams(location.search);
   const light = params.get('light');
-  if (light === 'sunset' || light === 'day' || light === 'moon') setLight(light);
+  if (light === 'sunrise' || light === 'day' || light === 'moon') setLight(light);
+  else if (light === 'sunset') setLight('sunrise'); // the old name, from links shared before
   if (params.has('nointro')) director.reduced = true;
   if (params.has('autostart')) {
     const go = () => {

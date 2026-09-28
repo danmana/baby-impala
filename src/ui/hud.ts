@@ -89,10 +89,10 @@ export class Hud {
     this.checklist = h('section', { class: 'checklist sheet', 'aria-label': 'Scene' },
       h('span', { class: 'tape' }), h('h2', {}, 'tonight:'));
     const lightRow = h('div', { class: 'light-row', role: 'radiogroup', 'aria-label': 'Light' });
-    (['moon', 'sunset', 'day'] as PresetName[]).forEach((p, i) => {
+    (['moon', 'sunrise', 'day'] as PresetName[]).forEach((p, i) => {
       const b = h('button', { class: 'light', type: 'button', role: 'radio', 'aria-checked': p === 'moon' ? 'true' : 'false' });
       b.innerHTML = `<svg viewBox="0 0 30 30" preserveAspectRatio="none" aria-hidden="true"><path class="ring" pathLength="100" d="M${25 - i} ${9 + i * 0.5} C ${21 + i} ${2.5}, ${5 - i * 0.5} ${3 + i * 0.4}, ${2.5} ${14 + i * 0.3} C ${1 + i * 0.5} ${25}, ${24 - i} ${28 - i * 0.4}, ${27.5} ${16 - i * 0.4} C ${28.5} ${11}, ${24} ${6}, ${17 + i} ${4.5}"/></svg>`;
-      b.append(h('span', {}, p === 'moon' ? 'Moon' : p === 'sunset' ? 'Sunset' : 'Day'));
+      b.append(h('span', {}, p === 'moon' ? 'Moon' : p === 'sunrise' ? 'Sunrise' : 'Day'));
       b.addEventListener('click', () => {
         this.setLight(p);
         on.light(p);
