@@ -29,6 +29,14 @@ export interface Preset {
   bloom: number;
   /** car lamps glare (dimmer in daylight) */
   lamps: number;
+  /**
+   * the moon or sun itself, seen through the fog: drawn along the light's own
+   * azimuth, but no higher than `elevation` so it fits in frame when you look
+   * towards it (the camera never looks far above the horizon). `size` is its
+   * angular radius, `intensity` its brightness (above 1 it blooms), `halo`
+   * the glow the fog scatters round it
+   */
+  orb: { elevation: number; size: number; color: number; intensity: number; halo: number; haloColor: number };
 }
 
 const deg = THREE.MathUtils.degToRad;
@@ -52,6 +60,7 @@ export const PRESETS: Record<PresetName, Preset> = {
     haze: 1,
     bloom: 0.5,
     lamps: 1,
+    orb: { elevation: deg(11), size: 0.024, color: 0xe6ecff, intensity: 1.7, halo: 0.32, haloColor: 0x7d8cb8 },
   },
   sunset: {
     label: 'Sunset',
@@ -71,6 +80,7 @@ export const PRESETS: Record<PresetName, Preset> = {
     haze: 0.55,
     bloom: 0.42,
     lamps: 0.75,
+    orb: { elevation: deg(8), size: 0.042, color: 0xffb46a, intensity: 2.6, halo: 0.55, haloColor: 0xff8a4a },
   },
   day: {
     label: 'Day',
@@ -90,6 +100,7 @@ export const PRESETS: Record<PresetName, Preset> = {
     haze: 0.12,
     bloom: 0.25,
     lamps: 0.45,
+    orb: { elevation: deg(13), size: 0.034, color: 0xfff6e8, intensity: 1.5, halo: 0.22, haloColor: 0xfff0dc },
   },
 };
 
@@ -193,6 +204,8 @@ export class LightingRig {
   private sky = {
     uTop: { value: new THREE.Color() }, uHorizon: { value: new THREE.Color() },
     uGlow: { value: new THREE.Color() }, uSun: { value: new THREE.Vector3(1, 0, 0) },
+    uOrb: { value: new THREE.Vector3(1, 0, 0) }, uOrbCol: { value: new THREE.Color() }, uOrbSize: { value: 0.03 },
+    uHalo: { value: new THREE.Color() },
   };
   current: PresetName = 'moon';
   private from: Preset = PRESETS.moon;
@@ -236,12 +249,30 @@ export class LightingRig {
           gl_Position = p.xyww;
         }`,
       fragmentShader: `uniform vec3 uTop; uniform vec3 uHorizon; uniform vec3 uGlow; uniform vec3 uSun; varying vec3 vDir;
+        uniform vec3 uOrb; uniform vec3 uOrbCol; uniform float uOrbSize; uniform vec3 uHalo;
+        float h21(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+        float vn(vec2 p) {
+          vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+          return mix(mix(h21(i), h21(i + vec2(1, 0)), f.x), mix(h21(i + vec2(0, 1)), h21(i + vec2(1, 1)), f.x), f.y);
+        }
         void main() {
           vec3 d = normalize(vDir);
           float e = d.y;
           vec3 c = mix(uHorizon, uTop, smoothstep(0.0, 0.6, e));
           float toward = max(dot(normalize(d.xz + 1e-5), normalize(uSun.xz + 1e-5)), 0.0);
           c += uGlow * pow(toward, 5.0) * smoothstep(-0.02, 0.06, e) * (1.0 - smoothstep(0.05, 0.45, e));
+          // the moon or sun through the fog: a soft-edged disc, a tight corona and a wide glow
+          float a = acos(clamp(dot(d, uOrb), -1.0, 1.0));
+          float disc = 1.0 - smoothstep(uOrbSize * 0.72, uOrbSize * 1.25, a);
+          // faint maria on the moon, drifting fog over any disc
+          vec3 t1 = normalize(cross(uOrb, vec3(0.0, 1.0, 0.0)));
+          vec3 t2 = cross(t1, uOrb);
+          vec2 q = vec2(dot(d, t1), dot(d, t2)) / uOrbSize;
+          float mottle = 0.82 + 0.18 * vn(q * 2.2 + 3.0);
+          float veil = 0.78 + 0.22 * vn(q * 0.8 + vec2(uOrb.x * 9.0, 0.0));
+          float fade = smoothstep(-0.01, 0.09, e);
+          c += uOrbCol * disc * mottle * veil * fade;
+          c += uHalo * (0.55 * exp(-a / (uOrbSize * 2.2)) + 0.45 * exp(-a / 0.3)) * fade;
           c += (fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) - 0.5) / 255.0;
           gl_FragColor = vec4(c, 1.0);
         }`,
@@ -328,6 +359,11 @@ export class LightingRig {
     this.sky.uTop.value.set(p.sky.top);
     this.sky.uGlow.value.set(p.sky.glow).multiplyScalar(p.sky.glowStrength);
     this.sky.uSun.value.copy(dir);
+    const oe = Math.min(p.sun.elevation, p.orb.elevation);
+    this.sky.uOrb.value.set(Math.cos(oe) * Math.cos(p.sun.azimuth), Math.sin(oe), Math.cos(oe) * Math.sin(p.sun.azimuth));
+    this.sky.uOrbCol.value.set(p.orb.color).multiplyScalar(p.orb.intensity);
+    this.sky.uOrbSize.value = p.orb.size;
+    this.sky.uHalo.value.set(p.orb.haloColor).multiplyScalar(p.orb.halo);
   }
 }
 
@@ -367,5 +403,10 @@ function blend(a: Preset, b: Preset, k: number): Preset {
     haze: n(a.haze, b.haze),
     bloom: n(a.bloom, b.bloom),
     lamps: n(a.lamps, b.lamps),
+    orb: {
+      elevation: n(a.orb.elevation, b.orb.elevation), size: n(a.orb.size, b.orb.size),
+      color: lerpColor(a.orb.color, b.orb.color, k), intensity: n(a.orb.intensity, b.orb.intensity),
+      halo: n(a.orb.halo, b.orb.halo), haloColor: lerpColor(a.orb.haloColor, b.orb.haloColor, k),
+    },
   };
 }
